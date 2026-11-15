@@ -1,0 +1,215 @@
+<!-- SPACE VISUAL ENGINE: IMMERSIVE OUTER SPACE BACKGROUND & MARS AMBIENCE -->
+<div id="space-visual-container" class="fixed inset-0 pointer-events-none z-[-1] overflow-hidden" aria-hidden="true">
+    <!-- Layer 1: Deep Navy Cosmic Nebula Gradient Base -->
+    <div class="absolute inset-0 bg-[#050816] transition-opacity duration-700"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_25%,rgba(126,34,206,0.18)_0%,transparent_55%)]"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_75%,rgba(6,182,212,0.14)_0%,transparent_60%)]"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(30,58,138,0.2)_0%,transparent_70%)]"></div>
+
+    <!-- Layer 2: Distant Spiral Galaxy SVG Accent -->
+    <svg class="absolute top-[8%] left-[70%] w-72 h-72 opacity-25 animate-[spin_180s_linear_infinite]" viewBox="0 0 200 200" fill="none">
+        <defs>
+            <radialGradient id="galaxyGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#c084fc" stop-opacity="0.8"/>
+                <stop offset="30%" stop-color="#60a5fa" stop-opacity="0.4"/>
+                <stop offset="70%" stop-color="#06b6d4" stop-opacity="0.15"/>
+                <stop offset="100%" stop-color="#050816" stop-opacity="0"/>
+            </radialGradient>
+        </defs>
+        <ellipse cx="100" cy="100" rx="90" ry="35" fill="url(#galaxyGrad)" transform="rotate(-30 100 100)"/>
+        <ellipse cx="100" cy="100" rx="70" ry="22" fill="url(#galaxyGrad)" transform="rotate(45 100 100)"/>
+        <circle cx="100" cy="100" r="12" fill="#ffffff" opacity="0.9" filter="drop-shadow(0 0 8px #c084fc)"/>
+    </svg>
+
+    <!-- Layer 3: Interactive Starfield Canvas (Twinkling Stars, Micro-Dust & Shooting Stars) -->
+    <canvas id="space-canvas" class="absolute inset-0 w-full h-full"></canvas>
+
+    <!-- Layer 4: Detailed 3D Martian Sphere (Visible in Mission Control) -->
+    <div id="ambientMarsOrb" class="absolute -top-12 -right-12 md:top-8 md:right-12 w-36 h-36 md:w-56 md:h-56 rounded-full pointer-events-none transition-all duration-1000 opacity-80 hover:opacity-100">
+        <!-- Mars Sphere with realistic limb darkening, polar ice cap, and dust terrain -->
+        <div class="relative w-full h-full rounded-full overflow-hidden shadow-[0_0_50px_rgba(239,68,68,0.35),inset_-25px_-25px_45px_rgba(0,0,0,0.85)] bg-gradient-to-tr from-[#7f1d1d] via-[#b91c1c] to-[#f87171]">
+            <!-- Atmospheric glow ring -->
+            <div class="absolute inset-0 rounded-full border border-red-500/30"></div>
+            <!-- Polar Ice Cap -->
+            <div class="absolute -top-2 left-1/3 w-16 h-8 rounded-full bg-slate-100/70 blur-[1px]"></div>
+            <!-- Olympus Mons & Dark Canyons (Valles Marineris) -->
+            <div class="absolute top-[42%] left-[25%] w-8 h-8 rounded-full bg-[#450a0a]/60 blur-[2px] border border-amber-500/20"></div>
+            <div class="absolute top-[52%] left-[18%] w-24 h-4 rounded-full bg-[#450a0a]/50 rotate-[-12deg] blur-[2px]"></div>
+            <!-- Atmosphere limb fringe -->
+            <div class="absolute inset-0 rounded-full shadow-[inset_10px_10px_20px_rgba(254,202,202,0.4)]"></div>
+        </div>
+        <div class="text-[9px] text-red-400/80 font-mono text-center tracking-widest mt-1 uppercase font-bold">MARS ORBITAL TELEMETRY</div>
+    </div>
+
+    <!-- Layer 5: Martian Surface Landscape Silhouette (Bottom Horizon) -->
+    <svg class="absolute bottom-0 left-0 right-0 w-full h-16 md:h-24 opacity-30 preserve-3d" viewBox="0 0 1440 120" preserveAspectRatio="none" fill="none">
+        <path d="M0,120 L0,85 Q180,45 360,75 T720,60 T1080,80 T1440,65 L1440,120 Z" fill="#450a0a"/>
+        <path d="M0,120 L0,95 Q240,65 480,90 T960,75 T1440,88 L1440,120 Z" fill="#1c0505"/>
+        <circle cx="420" cy="74" r="3" fill="#fca5a5" opacity="0.6"/> <!-- Distant outpost beacon -->
+    </svg>
+</div>
+
+<!-- SPACE VISUAL SCRIPT (Canvas Twinkling, Shooting Stars, Parallax & Reduced-Motion) -->
+<script>
+(function() {
+    const canvas = document.getElementById('space-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    let stars = [];
+    let shootingStars = [];
+    let animationFrameId = null;
+    let width = 0;
+    let height = 0;
+    
+    // Check user preference or local storage for reduced motion
+    let isReducedMotion = localStorage.getItem('solsurvivor_reduced_motion') === 'true' ||
+                          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+        initStars();
+        if (isReducedMotion) {
+            renderStaticStars();
+        }
+    }
+
+    function initStars() {
+        stars = [];
+        const starCount = Math.floor((width * height) / 8000);
+        for (let i = 0; i < starCount; i++) {
+            stars.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                radius: Math.random() * 1.6 + 0.4,
+                alpha: Math.random() * 0.8 + 0.2,
+                twinkleSpeed: Math.random() * 0.02 + 0.005,
+                color: Math.random() > 0.85 ? '#c084fc' : (Math.random() > 0.7 ? '#38bdf8' : '#ffffff'),
+                vy: Math.random() * 0.08 + 0.02 // Gentle drift
+            });
+        }
+    }
+
+    function spawnShootingStar() {
+        if (isReducedMotion || shootingStars.length > 2) return;
+        const startX = Math.random() * width * 0.8;
+        const startY = Math.random() * height * 0.4;
+        const length = Math.random() * 90 + 70;
+        const speed = Math.random() * 12 + 10;
+        const angle = Math.PI / 4 + (Math.random() * 0.2 - 0.1);
+
+        shootingStars.push({
+            x: startX,
+            y: startY,
+            dx: Math.cos(angle) * speed,
+            dy: Math.sin(angle) * speed,
+            length: length,
+            life: 1.0,
+            decay: Math.random() * 0.02 + 0.015
+        });
+    }
+
+    function renderStaticStars() {
+        ctx.clearRect(0, 0, width, height);
+        stars.forEach(s => {
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+            ctx.fillStyle = s.color;
+            ctx.globalAlpha = s.alpha * 0.8;
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1.0;
+    }
+
+    function loop() {
+        if (isReducedMotion) {
+            renderStaticStars();
+            return;
+        }
+
+        ctx.clearRect(0, 0, width, height);
+
+        // Render & update twinkling stars
+        stars.forEach(s => {
+            s.alpha += s.twinkleSpeed;
+            if (s.alpha > 0.95 || s.alpha < 0.2) {
+                s.twinkleSpeed = -s.twinkleSpeed;
+            }
+            s.y += s.vy;
+            if (s.y > height) {
+                s.y = 0;
+                s.x = Math.random() * width;
+            }
+
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+            ctx.fillStyle = s.color;
+            ctx.globalAlpha = Math.max(0.1, Math.min(1.0, s.alpha));
+            ctx.fill();
+        });
+
+        // Render & update shooting stars
+        for (let i = shootingStars.length - 1; i >= 0; i--) {
+            const ss = shootingStars[i];
+            const tailX = ss.x - (ss.dx / 12) * ss.length;
+            const tailY = ss.y - (ss.dy / 12) * ss.length;
+
+            const grad = ctx.createLinearGradient(ss.x, ss.y, tailX, tailY);
+            grad.addColorStop(0, `rgba(255, 255, 255, ${ss.life})`);
+            grad.addColorStop(0.3, `rgba(56, 189, 248, ${ss.life * 0.8})`);
+            grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+
+            ctx.beginPath();
+            ctx.moveTo(ss.x, ss.y);
+            ctx.lineTo(tailX, tailY);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 2.2;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            ss.x += ss.dx;
+            ss.y += ss.dy;
+            ss.life -= ss.decay;
+
+            if (ss.life <= 0 || ss.x > width || ss.y > height) {
+                shootingStars.splice(i, 1);
+            }
+        }
+
+        ctx.globalAlpha = 1.0;
+        animationFrameId = requestAnimationFrame(loop);
+    }
+
+    // Interval to spawn shooting stars every 9-16 seconds
+    setInterval(() => {
+        if (!isReducedMotion && Math.random() > 0.3) {
+            spawnShootingStar();
+        }
+    }, 11000);
+
+    window.addEventListener('resize', resize);
+    resize();
+    if (!isReducedMotion) {
+        animationFrameId = requestAnimationFrame(loop);
+    }
+
+    // Global toggle for reduced motion
+    window.toggleReducedMotion = function() {
+        isReducedMotion = !isReducedMotion;
+        localStorage.setItem('solsurvivor_reduced_motion', isReducedMotion);
+        const btn = document.getElementById('motionToggleBtn');
+        if (btn) {
+            btn.innerHTML = isReducedMotion ? '✨ MOTION: OFF' : '✨ MOTION: ON';
+            btn.classList.toggle('text-amber-400', isReducedMotion);
+            btn.classList.toggle('text-cyan-400', !isReducedMotion);
+        }
+        if (isReducedMotion) {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            renderStaticStars();
+        } else {
+            animationFrameId = requestAnimationFrame(loop);
+        }
+    };
+})();
+</script>

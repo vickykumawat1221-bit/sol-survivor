@@ -1,0 +1,1226 @@
+<script>
+/**
+ * SOL SURVIVOR: SPACE ACADEMY MINI-GAME ENGINES
+ * 8 Fully Functional, Interactive, Age-Adaptive Educational Space Simulations.
+ * Reference: NASA Space Place & NASA Solar System Exploration.
+ */
+
+function initMiniGame(gameId) {
+    const viewport = document.getElementById('gameplayViewport');
+    viewport.innerHTML = ''; // Clear previous viewport
+
+    if (activeMiniGameInstance && typeof activeMiniGameInstance.destroy === 'function') {
+        activeMiniGameInstance.destroy();
+    }
+
+    switch(gameId) {
+        case 'planet_explorer':
+            activeMiniGameInstance = new PlanetExplorerGame(viewport);
+            break;
+        case 'zero_gravity':
+            activeMiniGameInstance = new ZeroGravityGame(viewport);
+            break;
+        case 'rocket_builder':
+            activeMiniGameInstance = new RocketBuilderGame(viewport);
+            break;
+        case 'mars_rover':
+            activeMiniGameInstance = new MarsRoverGame(viewport);
+            break;
+        case 'asteroid_defender':
+            activeMiniGameInstance = new AsteroidDefenderGame(viewport);
+            break;
+        case 'save_astronaut':
+            activeMiniGameInstance = new SaveAstronautGame(viewport);
+            break;
+        case 'gravity_orbit_lab':
+            activeMiniGameInstance = new GravityOrbitLabGame(viewport);
+            break;
+        case 'space_quiz_battle':
+            activeMiniGameInstance = new SpaceQuizBattleGame(viewport);
+            break;
+        default:
+            viewport.innerHTML = '<div class="text-rose-400 font-mono">Game engine not found.</div>';
+    }
+}
+
+/* ==========================================================================
+   GAME 1: PLANET EXPLORER (Solar System Order & Planetary Science)
+   ========================================================================== */
+class PlanetExplorerGame {
+    constructor(container) {
+        this.container = container;
+        this.planets = [
+            { id: 'mercury', name: 'Mercury', order: 1, color: '#94a3b8', au: 0.39, clue: 'Smallest planet, closest to Sun, no atmosphere, extreme 600°C temperature swing!' },
+            { id: 'venus', name: 'Venus', order: 2, color: '#f59e0b', au: 0.72, clue: 'Hottest planet (465°C) with runaway greenhouse effect and sulfuric acid clouds!' },
+            { id: 'earth', name: 'Earth', order: 3, color: '#3b82f6', au: 1.00, clue: 'Our home world! Abundant liquid surface water and life-supporting atmosphere.' },
+            { id: 'mars', name: 'Mars', order: 4, color: '#ef4444', au: 1.52, clue: 'The Red Planet with Olympus Mons, frozen polar ice, and ancient riverbeds.' },
+            { id: 'jupiter', name: 'Jupiter', order: 5, color: '#d97706', au: 5.20, clue: 'Largest planet in solar system, featuring the giant Great Red Spot storm!' },
+            { id: 'saturn', name: 'Saturn', order: 6, color: '#eab308', au: 9.58, clue: 'Famous for its stunning rings made of billions of chunks of ice and rock!' },
+            { id: 'uranus', name: 'Uranus', order: 7, color: '#06b6d4', au: 19.22, clue: 'Ice giant rotating on its side at an extreme 98° axial tilt!' },
+            { id: 'neptune', name: 'Neptune', order: 8, color: '#2563eb', au: 30.05, clue: 'Farthest planet from Sun with supersonic methane winds over 2,000 km/h!' }
+        ];
+        this.placedCount = 0;
+        this.nextTargetOrder = 1;
+        this.shuffledPlanets = [...this.planets].sort(() => Math.random() - 0.5);
+        this.render();
+    }
+
+    render() {
+        this.container.innerHTML = `
+            <div class="w-full max-w-4xl flex flex-col items-center">
+                <div class="text-center mb-3">
+                    <span class="text-xs text-cyan-400 font-bold uppercase tracking-wider font-mono">MISSION TASK:</span>
+                    <h3 class="text-lg font-bold orbitron text-white">Arrange All 8 Planets in Order from the Sun (Closest to Farthest)</h3>
+                    <p class="text-xs text-slate-400 font-mono mt-0.5">Click or tap the correct next planet in the Solar System sequence.</p>
+                </div>
+
+                <!-- SOLAR SYSTEM ORBITAL SLOTS -->
+                <div class="w-full bg-slate-950/90 rounded-2xl p-4 border border-cyan-500/30 mb-4 overflow-x-auto">
+                    <div class="flex items-center justify-between min-w-[700px] gap-2 py-2">
+                        <div class="flex flex-col items-center justify-center p-2 rounded-xl bg-amber-500/20 border border-amber-400/50 w-20">
+                            <span class="text-2xl">☀️</span>
+                            <span class="text-[10px] font-bold text-amber-300 orbitron mt-1">THE SUN</span>
+                        </div>
+                        <div class="text-slate-600 font-black">➔</div>
+                        ${this.planets.map((p, idx) => `
+                            <div id="slot_${p.order}" class="flex flex-col items-center justify-center w-20 h-24 rounded-xl border-2 border-dashed border-slate-700 bg-slate-900/50 transition-all duration-300">
+                                <span class="text-xs font-bold text-slate-500 font-mono">#${p.order}</span>
+                                <span class="text-[9px] text-slate-600 mt-1">${p.au} AU</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- PLANET SELECTION POOL -->
+                <div class="w-full mb-3">
+                    <div class="text-xs text-slate-300 font-bold mb-2 font-mono flex items-center justify-between">
+                        <span>SELECT NEXT PLANET (TARGET: ORBIT #${this.nextTargetOrder}):</span>
+                        <span id="planetClueText" class="text-cyan-400 font-normal truncate max-w-md"></span>
+                    </div>
+                    <div id="planetPool" class="grid grid-cols-4 md:grid-cols-8 gap-2">
+                        ${this.shuffledPlanets.map(p => `
+                            <button id="pbtn_${p.id}" onclick="activeMiniGameInstance.selectPlanet('${p.id}')"
+                                class="p-2.5 rounded-xl border border-slate-700 bg-slate-900 hover:border-cyan-400 hover:bg-slate-800 transition flex flex-col items-center group">
+                                <div class="w-8 h-8 rounded-full mb-1 flex items-center justify-center shadow-md" style="background-color: ${p.color};"></div>
+                                <span class="text-xs font-bold text-white group-hover:text-cyan-300">${p.name}</span>
+                                <span class="text-[9px] text-slate-400 font-mono">${p.au} AU</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- SCIENTIFIC FACT CALLOUT -->
+                <div id="planetFactBanner" class="w-full bg-slate-950/80 p-3 rounded-xl border border-cyan-500/20 text-xs text-slate-300 font-mono min-h-[48px] flex items-center justify-center text-center">
+                    Click each planet in order from closest to the Sun (Orbit 1) to farthest (Orbit 8).
+                </div>
+            </div>
+        `;
+    }
+
+    selectPlanet(planetId) {
+        const planet = this.planets.find(p => p.id === planetId);
+        if (!planet) return;
+
+        if (planet.order === this.nextTargetOrder) {
+            SpaceAudio.playChime();
+            updateScore(25);
+
+            // Fill slot
+            const slot = document.getElementById(`slot_${planet.order}`);
+            if (slot) {
+                slot.className = "flex flex-col items-center justify-center w-20 h-24 rounded-xl border-2 border-cyan-400 bg-cyan-950/40 shadow-lg shadow-cyan-950/50 transition-all duration-300 transform scale-105";
+                slot.innerHTML = `
+                    <div class="w-7 h-7 rounded-full mb-1" style="background-color: ${planet.color};"></div>
+                    <span class="text-xs font-black text-white orbitron">${planet.name}</span>
+                    <span class="text-[9px] text-cyan-400 font-mono font-bold">${planet.au} AU</span>
+                `;
+            }
+
+            // Disable button in pool
+            const btn = document.getElementById(`pbtn_${planet.id}`);
+            if (btn) {
+                btn.disabled = true;
+                btn.className = "p-2.5 rounded-xl border border-slate-900 bg-slate-950 opacity-30 cursor-not-allowed flex flex-col items-center";
+            }
+
+            // Show NASA fact
+            const factBox = document.getElementById('planetFactBanner');
+            if (factBox) {
+                factBox.innerHTML = `⭐ <strong class="text-cyan-300">${planet.name.toUpperCase()} (Orbit #${planet.order}):</strong> ${planet.clue}`;
+            }
+
+            this.placedCount++;
+            this.nextTargetOrder++;
+
+            if (this.placedCount >= 8) {
+                setTimeout(() => {
+                    finishMission(
+                        200,
+                        "All 8 planets ordered accurately! Terrestrial rocky worlds (Mercury, Venus, Earth, Mars) sit within 1.5 AU, separated by the Asteroid Belt from the Gas and Ice Giants (Jupiter, Saturn, Uranus, Neptune).",
+                        { planets_ordered: 8, accuracy: 100 }
+                    );
+                }, 1000);
+            }
+        } else {
+            SpaceAudio.playWarning();
+            const factBox = document.getElementById('planetFactBanner');
+            if (factBox) {
+                factBox.innerHTML = `⚠️ <span class="text-rose-400 font-bold">${planet.name} is in Orbit #${planet.order}!</span> We need Orbit #${this.nextTargetOrder} first. Check the AU distance from the Sun!`;
+            }
+        }
+    }
+
+    destroy() {}
+}
+
+/* ==========================================================================
+   GAME 2: ZERO GRAVITY CHALLENGE (Newtonian Spacewalk Mechanics)
+   ========================================================================== */
+class ZeroGravityGame {
+    constructor(container) {
+        this.container = container;
+        this.animId = null;
+        this.keys = {};
+        this.oxygen = 100;
+        this.propellant = 100;
+        this.collected = 0;
+        this.render();
+    }
+
+    render() {
+        this.container.innerHTML = `
+            <div class="w-full flex flex-col items-center">
+                <!-- TELEMETRY BARS -->
+                <div class="w-full max-w-2xl flex items-center justify-between mb-2 px-2 text-xs font-mono">
+                    <div class="flex items-center gap-2">
+                        <span class="text-cyan-400 font-bold">🫁 SUIT O2:</span>
+                        <div class="w-28 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-700">
+                            <div id="evaO2Bar" class="bg-cyan-400 h-full w-full transition-all duration-300"></div>
+                        </div>
+                        <span id="evaO2Text" class="text-white font-bold">100%</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-amber-400 font-bold">💨 RCS NITROGEN:</span>
+                        <div class="w-28 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-700">
+                            <div id="evaRcsBar" class="bg-amber-400 h-full w-full transition-all duration-300"></div>
+                        </div>
+                        <span id="evaRcsText" class="text-white font-bold">100%</span>
+                    </div>
+                    <div>
+                        <span class="text-emerald-400 font-bold">TOOLS: <span id="evaCollected">0/4</span></span>
+                    </div>
+                </div>
+
+                <!-- CANVAS STAGE -->
+                <div class="relative w-full max-w-2xl aspect-[16/9] bg-slate-950 rounded-2xl overflow-hidden border-2 border-emerald-500/40 shadow-2xl">
+                    <canvas id="zeroGCanvas" class="w-full h-full"></canvas>
+
+                    <!-- ON-SCREEN VIRTUAL TOUCH ARROWS (MOBILE FRIENDLY) -->
+                    <div class="absolute bottom-2 right-2 flex flex-col items-center gap-1 opacity-70 hover:opacity-100">
+                        <button onmousedown="activeMiniGameInstance.pressKey('ArrowUp')" onmouseup="activeMiniGameInstance.releaseKey('ArrowUp')"
+                            ontouchstart="activeMiniGameInstance.pressKey('ArrowUp')" ontouchend="activeMiniGameInstance.releaseKey('ArrowUp')"
+                            class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold">▲</button>
+                        <div class="flex gap-1">
+                            <button onmousedown="activeMiniGameInstance.pressKey('ArrowLeft')" onmouseup="activeMiniGameInstance.releaseKey('ArrowLeft')"
+                                ontouchstart="activeMiniGameInstance.pressKey('ArrowLeft')" ontouchend="activeMiniGameInstance.releaseKey('ArrowLeft')"
+                                class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold">◀</button>
+                            <button onmousedown="activeMiniGameInstance.pressKey('ArrowDown')" onmouseup="activeMiniGameInstance.releaseKey('ArrowDown')"
+                                ontouchstart="activeMiniGameInstance.pressKey('ArrowDown')" ontouchend="activeMiniGameInstance.releaseKey('ArrowDown')"
+                                class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold">▼</button>
+                            <button onmousedown="activeMiniGameInstance.pressKey('ArrowRight')" onmouseup="activeMiniGameInstance.releaseKey('ArrowRight')"
+                                ontouchstart="activeMiniGameInstance.pressKey('ArrowRight')" ontouchend="activeMiniGameInstance.releaseKey('ArrowRight')"
+                                class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold">▶</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-[11px] text-slate-400 font-mono mt-2 text-center">
+                    Controls: <strong>WASD / Arrow Keys</strong> or Touch Buttons. Microgravity Inertia: You coast until you fire reverse thrusters!
+                </div>
+            </div>
+        `;
+
+        this.initCanvas();
+    }
+
+    pressKey(k) { this.keys[k] = true; }
+    releaseKey(k) { this.keys[k] = false; }
+
+    initCanvas() {
+        const canvas = document.getElementById('zeroGCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 450;
+
+        // Astronaut Physics
+        this.astro = { x: 400, y: 225, vx: 0, vy: 0, r: 16 };
+
+        // Floating Collectibles
+        this.items = [
+            { id: 'wrench', x: 120, y: 80, name: 'Torque Wrench', icon: '🔧', collected: false },
+            { id: 'canister', x: 680, y: 90, name: 'Bio-Canister', icon: '🧪', collected: false },
+            { id: 'bolt', x: 150, y: 360, name: 'Array Pin', icon: '🔩', collected: false },
+            { id: 'filter', x: 660, y: 350, name: 'Optical Filter', icon: '🔭', collected: false }
+        ];
+
+        // Moving Space Debris
+        this.hazards = [
+            { x: 50, y: 150, vx: 2.2, vy: 1.1, r: 10 },
+            { x: 750, y: 300, vx: -2.0, vy: -1.3, r: 12 }
+        ];
+
+        // Event Listeners
+        this.keydownHandler = (e) => { this.keys[e.key] = true; };
+        this.keyupHandler = (e) => { this.keys[e.key] = false; };
+        window.addEventListener('keydown', this.keydownHandler);
+        window.addEventListener('keyup', this.keyupHandler);
+
+        // Simulation Loop
+        const loop = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background Grid
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 40) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // Apply Thruster Impulses
+            let thrusting = false;
+            const thrustAcc = 0.12;
+            if (this.propellant > 0) {
+                if (this.keys['ArrowUp'] || this.keys['w'] || this.keys['W']) { this.astro.vy -= thrustAcc; thrusting = true; }
+                if (this.keys['ArrowDown'] || this.keys['s'] || this.keys['S']) { this.astro.vy += thrustAcc; thrusting = true; }
+                if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) { this.astro.vx -= thrustAcc; thrusting = true; }
+                if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) { this.astro.vx += thrustAcc; thrusting = true; }
+
+                if (thrusting) {
+                    this.propellant = Math.max(0, this.propellant - 0.15);
+                    SpaceAudio.playThruster();
+                }
+            }
+
+            // Inertia Physics (Zero-G coasting, minimal drag)
+            this.astro.x += this.astro.vx;
+            this.astro.y += this.astro.vy;
+            this.astro.vx *= 0.992; // Slight vacuum damping
+            this.astro.vy *= 0.992;
+
+            // Bounce off boundaries
+            if (this.astro.x < 20) { this.astro.x = 20; this.astro.vx *= -0.7; }
+            if (this.astro.x > canvas.width - 20) { this.astro.x = canvas.width - 20; this.astro.vx *= -0.7; }
+            if (this.astro.y < 20) { this.astro.y = 20; this.astro.vy *= -0.7; }
+            if (this.astro.y > canvas.height - 20) { this.astro.y = canvas.height - 20; this.astro.vy *= -0.7; }
+
+            // Oxygen consumption
+            this.oxygen = Math.max(0, this.oxygen - 0.02);
+            document.getElementById('evaO2Bar').style.width = `${this.oxygen}%`;
+            document.getElementById('evaO2Text').textContent = `${Math.round(this.oxygen)}%`;
+            document.getElementById('evaRcsBar').style.width = `${this.propellant}%`;
+            document.getElementById('evaRcsText').textContent = `${Math.round(this.propellant)}%`;
+
+            // Draw Astronaut
+            ctx.save();
+            ctx.translate(this.astro.x, this.astro.y);
+            // Draw suit body
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
+            // Visor (Gold foil)
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath(); ctx.arc(4, -2, 6, 0, Math.PI * 2); ctx.fill();
+            // Thruster jet particles if active
+            if (thrusting) {
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.7)';
+                ctx.beginPath(); ctx.arc(-10, 0, 5, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+
+            // Draw & Check Items
+            this.items.forEach(item => {
+                if (!item.collected) {
+                    ctx.font = '22px sans-serif';
+                    ctx.fillText(item.icon, item.x - 11, item.y + 8);
+
+                    // Collision check
+                    const dx = this.astro.x - item.x;
+                    const dy = this.astro.y - item.y;
+                    if (Math.hypot(dx, dy) < 26) {
+                        item.collected = true;
+                        this.collected++;
+                        SpaceAudio.playChime();
+                        updateScore(50);
+                        document.getElementById('evaCollected').textContent = `${this.collected}/4`;
+
+                        if (this.collected >= 4) {
+                            setTimeout(() => {
+                                finishMission(
+                                    250,
+                                    "EVA Mission Successful! In microgravity, an astronaut coasts indefinitely unless counter-thrust is fired (Newton's 1st Law: Inertia). RCS gas thrusters expend propellant to alter momentum (Newton's 3rd Law).",
+                                    { tools_collected: 4, o2_remaining: Math.round(this.oxygen) }
+                                );
+                            }, 500);
+                        }
+                    }
+                }
+            });
+
+            // Draw & Update Hazards
+            this.hazards.forEach(h => {
+                h.x += h.vx;
+                h.y += h.vy;
+                if (h.x < 10 || h.x > canvas.width - 10) h.vx *= -1;
+                if (h.y < 10 || h.y > canvas.height - 10) h.vy *= -1;
+
+                ctx.fillStyle = '#94a3b8';
+                ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2); ctx.fill();
+
+                // Collision with hazard
+                const dx = this.astro.x - h.x;
+                const dy = this.astro.y - h.y;
+                if (Math.hypot(dx, dy) < this.astro.r + h.r) {
+                    SpaceAudio.playWarning();
+                    this.astro.vx += h.vx * 1.5;
+                    this.astro.vy += h.vy * 1.5;
+                    this.oxygen = Math.max(0, this.oxygen - 10);
+                }
+            });
+
+            this.animId = requestAnimationFrame(loop);
+        };
+
+        this.animId = requestAnimationFrame(loop);
+    }
+
+    destroy() {
+        if (this.animId) cancelAnimationFrame(this.animId);
+        window.removeEventListener('keydown', this.keydownHandler);
+        window.removeEventListener('keyup', this.keyupHandler);
+    }
+}
+
+/* ==========================================================================
+   GAME 3: ROCKET BUILDER & LAUNCH (Propulsion & Orbital Mechanics)
+   ========================================================================== */
+class RocketBuilderGame {
+    constructor(container) {
+        this.container = container;
+        this.booster = 'methalox';
+        this.secondStage = 'vacuum_merlin';
+        this.payload = 'mars_rover';
+        this.launching = false;
+        this.render();
+    }
+
+    render() {
+        this.container.innerHTML = `
+            <div class="w-full max-w-4xl flex flex-col items-center">
+                <div class="text-center mb-3">
+                    <span class="text-xs text-amber-400 font-bold uppercase tracking-wider font-mono">MISSION TASK:</span>
+                    <h3 class="text-lg font-bold orbitron text-white">Assemble a Launch Vehicle to Reach Mars Insertion</h3>
+                    <p class="text-xs text-slate-400 font-mono mt-0.5">Select stages, verify Thrust-to-Weight Ratio (TWR > 1.2), and launch to orbit!</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-4">
+                    <!-- STAGE 1 BOOSTER SELECTOR -->
+                    <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-800">
+                        <div class="text-xs font-bold text-amber-400 mb-2 flex items-center justify-between">
+                            <span>STAGE 1: BOOSTERS</span>
+                            <span class="text-[10px]">TWR IMPACT</span>
+                        </div>
+                        <div class="space-y-2">
+                            <button onclick="activeMiniGameInstance.setBooster('srb')" id="b_srb" class="w-full p-2 rounded-lg border border-slate-700 bg-slate-900 text-left text-xs text-white hover:border-amber-400">
+                                <div class="font-bold">Solid Rocket Boosters</div>
+                                <div class="text-[10px] text-slate-400">High Thrust (28,000 kN) | Fixed Burn</div>
+                            </button>
+                            <button onclick="activeMiniGameInstance.setBooster('methalox')" id="b_methalox" class="w-full p-2 rounded-lg border border-amber-400 bg-amber-950/40 text-left text-xs text-white">
+                                <div class="font-bold text-amber-300">Reusable MethaLOX</div>
+                                <div class="text-[10px] text-slate-400">22,000 kN | High Isp (330s)</div>
+                            </button>
+                            <button onclick="activeMiniGameInstance.setBooster('hydrolox')" id="b_hydrolox" class="w-full p-2 rounded-lg border border-slate-700 bg-slate-900 text-left text-xs text-white hover:border-amber-400">
+                                <div class="font-bold">Cryogenic HydroLOX</div>
+                                <div class="text-[10px] text-slate-400">18,000 kN | Highest Isp (390s)</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STAGE 2 ENGINE SELECTOR -->
+                    <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-800">
+                        <div class="text-xs font-bold text-cyan-400 mb-2">STAGE 2: VACUUM CORE</div>
+                        <div class="space-y-2">
+                            <button onclick="activeMiniGameInstance.setSecondStage('vacuum_merlin')" id="s2_merlin" class="w-full p-2 rounded-lg border border-cyan-400 bg-cyan-950/40 text-left text-xs text-white">
+                                <div class="font-bold text-cyan-300">Vacuum Expansion Bell</div>
+                                <div class="text-[10px] text-slate-400">980 kN | High expansion ratio</div>
+                            </button>
+                            <button onclick="activeMiniGameInstance.setSecondStage('rl10')" id="s2_rl10" class="w-full p-2 rounded-lg border border-slate-700 bg-slate-900 text-left text-xs text-white hover:border-cyan-400">
+                                <div class="font-bold">Deep Space RL10 Core</div>
+                                <div class="text-[10px] text-slate-400">Extreme efficiency (453s Isp)</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PAYLOAD SELECTOR -->
+                    <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-800">
+                        <div class="text-xs font-bold text-emerald-400 mb-2">PAYLOAD BAY</div>
+                        <div class="space-y-2">
+                            <button onclick="activeMiniGameInstance.setPayload('mars_rover')" id="p_rover" class="w-full p-2 rounded-lg border border-emerald-400 bg-emerald-950/40 text-left text-xs text-white">
+                                <div class="font-bold text-emerald-300">🚜 Perseverance Mars Rover</div>
+                                <div class="text-[10px] text-slate-400">1,025 kg scientific robotic lab</div>
+                            </button>
+                            <button onclick="activeMiniGameInstance.setPayload('habitat')" id="p_hab" class="w-full p-2 rounded-lg border border-slate-700 bg-slate-900 text-left text-xs text-white hover:border-emerald-400">
+                                <div class="font-bold">🏕️ Inflatable Habitat Module</div>
+                                <div class="text-[10px] text-slate-400">4,500 kg deep space outpost</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LAUNCHPAD STAGE & TELEMETRY DISPLAY -->
+                <div class="w-full bg-slate-950/90 p-4 rounded-xl border border-amber-500/40 mb-4 flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-6 font-mono text-xs">
+                        <div>
+                            <span class="text-slate-400">TOTAL MASS:</span>
+                            <div class="text-base font-bold text-white font-mono" id="dispMass">1,010 Tons</div>
+                        </div>
+                        <div>
+                            <span class="text-slate-400">TOTAL THRUST:</span>
+                            <div class="text-base font-bold text-amber-300 font-mono" id="dispThrust">22,000 kN</div>
+                        </div>
+                        <div>
+                            <span class="text-slate-400">TWR RATIO:</span>
+                            <div class="text-base font-bold text-emerald-400 font-mono" id="dispTwr">2.22 (GO FOR LAUNCH)</div>
+                        </div>
+                    </div>
+
+                    <button onclick="activeMiniGameInstance.launch()" id="launchBtn"
+                        class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-slate-950 font-black orbitron text-sm transition shadow-lg shadow-amber-500/30">
+                        IGNITE ENGINES 🚀
+                    </button>
+                </div>
+
+                <!-- LAUNCH SIMULATION CANVAS VIEWPORT -->
+                <div class="relative w-full aspect-[21/9] bg-slate-950 rounded-2xl overflow-hidden border border-slate-800">
+                    <canvas id="rocketCanvas" class="w-full h-full"></canvas>
+                </div>
+            </div>
+        `;
+
+        this.initRocketCanvas();
+    }
+
+    setBooster(b) {
+        this.booster = b;
+        ['srb', 'methalox', 'hydrolox'].forEach(id => {
+            const btn = document.getElementById(`b_${id}`);
+            if (btn) btn.className = id === b ? "w-full p-2 rounded-lg border border-amber-400 bg-amber-950/40 text-left text-xs text-white" : "w-full p-2 rounded-lg border border-slate-700 bg-slate-900 text-left text-xs text-white hover:border-amber-400";
+        });
+        this.updateStats();
+    }
+
+    setSecondStage(s) {
+        this.secondStage = s;
+        ['merlin', 'rl10'].forEach(id => {
+            const btn = document.getElementById(`s2_${id}`);
+            if (btn) btn.className = id === (s.includes('merlin') ? 'merlin' : 'rl10') ? "w-full p-2 rounded-lg border border-cyan-400 bg-cyan-950/40 text-left text-xs text-white" : "w-full p-2 rounded-lg border border-slate-700 bg-slate-900 text-left text-xs text-white hover:border-cyan-400";
+        });
+        this.updateStats();
+    }
+
+    setPayload(p) {
+        this.payload = p;
+        ['rover', 'hab'].forEach(id => {
+            const btn = document.getElementById(`p_${id}`);
+            if (btn) btn.className = id === (p === 'mars_rover' ? 'rover' : 'hab') ? "w-full p-2 rounded-lg border border-emerald-400 bg-emerald-950/40 text-left text-xs text-white" : "w-full p-2 rounded-lg border border-slate-700 bg-slate-900 text-left text-xs text-white hover:border-emerald-400";
+        });
+        this.updateStats();
+    }
+
+    updateStats() {
+        let mass = 1000;
+        let thrust = 22000;
+        if (this.booster === 'srb') { mass = 1180; thrust = 28000; }
+        else if (this.booster === 'hydrolox') { mass = 870; thrust = 18000; }
+        if (this.payload === 'habitat') mass += 150;
+
+        const twr = (thrust / (mass * 9.81)).toFixed(2);
+        document.getElementById('dispMass').textContent = `${mass} Tons`;
+        document.getElementById('dispThrust').textContent = `${thrust} kN`;
+        const twrEl = document.getElementById('dispTwr');
+        if (twr > 1.2) {
+            twrEl.textContent = `${twr} (NOMINAL LIFTOFF)`;
+            twrEl.className = "text-base font-bold text-emerald-400 font-mono";
+        } else {
+            twrEl.textContent = `${twr} (TOO HEAVY TO LIFTOFF)`;
+            twrEl.className = "text-base font-bold text-rose-400 font-mono";
+        }
+    }
+
+    initRocketCanvas() {
+        const canvas = document.getElementById('rocketCanvas');
+        if (!canvas) return;
+        this.ctx = canvas.getContext('2d');
+        canvas.width = 900;
+        canvas.height = 380;
+        this.rocketY = 320;
+        this.drawRocketScene(0);
+    }
+
+    drawRocketScene(altKm) {
+        const ctx = this.ctx;
+        if (!ctx) return;
+        ctx.clearRect(0, 0, 900, 380);
+
+        // Ground Launchpad
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 340, 900, 40);
+
+        // Tower
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(380, 160, 20, 180);
+
+        // Draw Rocket
+        ctx.save();
+        ctx.translate(450, this.rocketY);
+        // Core Body
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-12, -70, 24, 70);
+        // Fairing
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath(); ctx.moveTo(-12, -70); ctx.lineTo(0, -95); ctx.lineTo(12, -70); ctx.fill();
+        // Boosters
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-22, -45, 8, 45);
+        ctx.fillRect(14, -45, 8, 45);
+
+        // Exhaust flame if launching
+        if (this.launching) {
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.9)';
+            ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(0, 35); ctx.lineTo(10, 0); ctx.fill();
+        }
+        ctx.restore();
+
+        // Altitude HUD
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = '14px "Share Tech Mono"';
+        ctx.fillText(`ALTITUDE: ${Math.round(altKm)} KM | VELOCITY: ${(altKm * 0.08).toFixed(1)} KM/S`, 30, 40);
+    }
+
+    launch() {
+        if (this.launching) return;
+        this.launching = true;
+        document.getElementById('launchBtn').disabled = true;
+        SpaceAudio.playThruster();
+
+        let alt = 0;
+        const interval = setInterval(() => {
+            alt += 2.5;
+            this.rocketY = Math.max(-100, this.rocketY - 3.5);
+            this.drawRocketScene(alt);
+
+            if (alt >= 100) {
+                clearInterval(interval);
+                updateScore(200);
+                finishMission(
+                    200,
+                    "Orbital Insertion Achieved (7.8 km/s)! By staging dead weight fuel tanks (Tsiolkovsky rocket equation), your launch vehicle minimized mass to maximize delta-V and achieve sustainable low orbit.",
+                    { booster: this.booster, payload: this.payload, target_orbit: 'Orbit Achieved' }
+                );
+            }
+        }, 60);
+    }
+
+    destroy() {}
+}
+
+/* ==========================================================================
+   GAME 4: MARS ROVER ADVENTURE (Rocker-Bogie Geology Exploration)
+   ========================================================================== */
+class MarsRoverGame {
+    constructor(container) {
+        this.container = container;
+        this.roverX = 60;
+        this.battery = 100;
+        this.samplesCollected = 0;
+        this.animId = null;
+        this.keys = {};
+        this.render();
+    }
+
+    render() {
+        this.container.innerHTML = `
+            <div class="w-full flex flex-col items-center">
+                <div class="w-full max-w-2xl flex items-center justify-between mb-2 px-2 text-xs font-mono">
+                    <div class="flex items-center gap-2">
+                        <span class="text-amber-400 font-bold">⚡ ROVER BATTERY:</span>
+                        <div class="w-32 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-700">
+                            <div id="roverBattBar" class="bg-amber-400 h-full w-full transition-all"></div>
+                        </div>
+                        <span id="roverBattText" class="text-white font-bold">100%</span>
+                    </div>
+                    <div>
+                        <span class="text-rose-400 font-bold">SAMPLES EXTRACTED: <span id="roverSamples">0/4</span></span>
+                    </div>
+                </div>
+
+                <div class="relative w-full max-w-2xl aspect-[16/9] bg-slate-950 rounded-2xl overflow-hidden border-2 border-rose-500/40 shadow-2xl">
+                    <canvas id="roverCanvas" class="w-full h-full"></canvas>
+
+                    <!-- CONTROLS OVERLAY -->
+                    <div class="absolute bottom-3 left-3 flex gap-2">
+                        <button onmousedown="activeMiniGameInstance.pressKey('ArrowLeft')" onmouseup="activeMiniGameInstance.releaseKey('ArrowLeft')"
+                            ontouchstart="activeMiniGameInstance.pressKey('ArrowLeft')" ontouchend="activeMiniGameInstance.releaseKey('ArrowLeft')"
+                            class="px-4 py-2 rounded-lg bg-rose-500/20 border border-rose-400 text-rose-300 font-bold">◀ REVERSE</button>
+                        <button onmousedown="activeMiniGameInstance.pressKey('ArrowRight')" onmouseup="activeMiniGameInstance.releaseKey('ArrowRight')"
+                            ontouchstart="activeMiniGameInstance.pressKey('ArrowRight')" ontouchend="activeMiniGameInstance.releaseKey('ArrowRight')"
+                            class="px-4 py-2 rounded-lg bg-rose-500/20 border border-rose-400 text-rose-300 font-bold">FORWARD ▶</button>
+                    </div>
+                </div>
+
+                <div class="text-[11px] text-slate-400 font-mono mt-2 text-center">
+                    Drive across Jezero Crater to collect 4 rock samples. Stay in sunlight to recharge battery!
+                </div>
+            </div>
+        `;
+
+        this.initCanvas();
+    }
+
+    pressKey(k) { this.keys[k] = true; }
+    releaseKey(k) { this.keys[k] = false; }
+
+    initCanvas() {
+        const canvas = document.getElementById('roverCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 450;
+
+        this.samples = [
+            { x: 180, name: 'Clay Mineral', icon: '🪨', collected: false },
+            { x: 380, name: 'Hematite Blueberry', icon: '🫐', collected: false },
+            { x: 550, name: 'Carbonate Outcrop', icon: '💎', collected: false },
+            { x: 720, name: 'Volcanic Basalt', icon: '🌋', collected: false }
+        ];
+
+        this.keydownHandler = (e) => { this.keys[e.key] = true; };
+        this.keyupHandler = (e) => { this.keys[e.key] = false; };
+        window.addEventListener('keydown', this.keydownHandler);
+        window.addEventListener('keyup', this.keyupHandler);
+
+        const loop = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Red Martian Sky & Gradient
+            const sky = ctx.createLinearGradient(0, 0, 0, 300);
+            sky.addColorStop(0, '#1c0505');
+            sky.addColorStop(1, '#7f1d1d');
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, canvas.width, 300);
+
+            // Draw Distant Crater Horizon
+            ctx.fillStyle = '#450a0a';
+            ctx.beginPath();
+            ctx.moveTo(0, 320);
+            for (let x = 0; x <= canvas.width; x += 40) {
+                const y = 300 + Math.sin(x * 0.015) * 20;
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.fill();
+
+            // Drive Rover
+            if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) {
+                this.roverX = Math.min(750, this.roverX + 2.5);
+                this.battery = Math.max(0, this.battery - 0.08);
+            }
+            if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) {
+                this.roverX = Math.max(40, this.roverX - 2.0);
+                this.battery = Math.max(0, this.battery - 0.08);
+            }
+
+            // Sunlight solar recharge
+            this.battery = Math.min(100, this.battery + 0.02);
+            document.getElementById('roverBattBar').style.width = `${this.battery}%`;
+            document.getElementById('roverBattText').textContent = `${Math.round(this.battery)}%`;
+
+            // Draw Samples
+            this.samples.forEach(s => {
+                if (!s.collected) {
+                    ctx.font = '24px sans-serif';
+                    ctx.fillText(s.icon, s.x - 12, 335);
+
+                    // Check Rover Extraction
+                    if (Math.abs(this.roverX - s.x) < 25) {
+                        s.collected = true;
+                        this.samplesCollected++;
+                        SpaceAudio.playChime();
+                        updateScore(50);
+                        document.getElementById('roverSamples').textContent = `${this.samplesCollected}/4`;
+
+                        if (this.samplesCollected >= 4) {
+                            setTimeout(() => {
+                                finishMission(
+                                    200,
+                                    "Geology Survey Complete! Jezero Crater's clay phyllosilicates and carbonates formed in neutral pH ancient water, making them prime targets for preserving fossil biosignatures.",
+                                    { samples: 4, battery: Math.round(this.battery) }
+                                );
+                            }, 500);
+                        }
+                    }
+                }
+            });
+
+            // Draw Perseverance Rover (Rocker-Bogie Chassis)
+            ctx.save();
+            ctx.translate(this.roverX, 320);
+            // Chassis
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(-22, -18, 44, 18);
+            // Mastcam Periscope
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(-15, -34, 4, 16);
+            ctx.fillRect(-18, -38, 10, 5);
+            // 6 Wheels
+            ctx.fillStyle = '#334155';
+            [-20, 0, 20].forEach(wx => {
+                ctx.beginPath(); ctx.arc(wx, 5, 6, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.restore();
+
+            this.animId = requestAnimationFrame(loop);
+        };
+
+        this.animId = requestAnimationFrame(loop);
+    }
+
+    destroy() {
+        if (this.animId) cancelAnimationFrame(this.animId);
+        window.removeEventListener('keydown', this.keydownHandler);
+        window.removeEventListener('keyup', this.keyupHandler);
+    }
+}
+
+/* ==========================================================================
+   GAME 5: ASTEROID DEFENDER (Planetary Defense Kinetic Impactor)
+   ========================================================================== */
+class AsteroidDefenderGame {
+    constructor(container) {
+        this.container = container;
+        this.asteroidsDeflected = 0;
+        this.animId = null;
+        this.render();
+    }
+
+    render() {
+        this.container.innerHTML = `
+            <div class="w-full flex flex-col items-center">
+                <div class="w-full max-w-2xl flex items-center justify-between mb-2 px-2 text-xs font-mono">
+                    <span class="text-purple-400 font-bold">DEFLECTED: <span id="deflectedCount">0/3</span></span>
+                    <span class="text-cyan-400">PLANETARY DEFENSE RADAR (NASA DART PROTOCOL)</span>
+                </div>
+                <div class="relative w-full max-w-2xl aspect-[16/9] bg-slate-950 rounded-2xl overflow-hidden border-2 border-purple-500/40 shadow-2xl">
+                    <canvas id="dartCanvas" class="w-full h-full"></canvas>
+                </div>
+                <div class="text-[11px] text-slate-400 font-mono mt-2 text-center">
+                    Click / Tap anywhere on screen to launch a Kinetic Impactor probe to alter incoming asteroid trajectory!
+                </div>
+            </div>
+        `;
+
+        this.initCanvas();
+    }
+
+    initCanvas() {
+        const canvas = document.getElementById('dartCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 450;
+
+        this.station = { x: 720, y: 225, r: 24 };
+        this.asteroids = [
+            { x: 80, y: 120, vx: 1.4, vy: 0.25, r: 18, deflected: false, color: '#a855f7' },
+            { x: 50, y: 240, vx: 1.2, vy: -0.05, r: 22, deflected: false, color: '#94a3b8' },
+            { x: 90, y: 340, vx: 1.5, vy: -0.28, r: 16, deflected: false, color: '#f59e0b' }
+        ];
+        this.probes = [];
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            const dx = clickX - this.station.x;
+            const dy = clickY - this.station.y;
+            const dist = Math.hypot(dx, dy);
+            const speed = 7.0;
+
+            this.probes.push({
+                x: this.station.x,
+                y: this.station.y,
+                vx: (dx / dist) * speed,
+                vy: (dy / dist) * speed
+            });
+            SpaceAudio.playThruster();
+        });
+
+        const loop = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Station
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath(); ctx.arc(this.station.x, this.station.y, this.station.r, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '10px "Share Tech Mono"';
+            ctx.fillText('HABITAT', this.station.x - 20, this.station.y + 40);
+
+            // Update & Draw Probes
+            for (let i = this.probes.length - 1; i >= 0; i--) {
+                const p = this.probes[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                ctx.fillStyle = '#fde047';
+                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+
+                // Hit detection with asteroids
+                this.asteroids.forEach(ast => {
+                    if (!ast.deflected && Math.hypot(p.x - ast.x, p.y - ast.y) < ast.r + 6) {
+                        ast.deflected = true;
+                        ast.vy += (p.vy > 0 ? 2.5 : -2.5); // Impart delta-v
+                        ast.vx *= 0.6;
+                        this.asteroidsDeflected++;
+                        SpaceAudio.playChime();
+                        updateScore(70);
+                        document.getElementById('deflectedCount').textContent = `${this.asteroidsDeflected}/3`;
+
+                        if (this.asteroidsDeflected >= 3) {
+                            setTimeout(() => {
+                                finishMission(
+                                    210,
+                                    "Planetary Defense Successful! Just like NASA's DART mission, kinetic impact alters asteroid velocity (delta-V) by millimeters per second, safely shifting its orbital trajectory without creating dangerous fragmented shrapnel.",
+                                    { deflected: 3 }
+                                );
+                            }, 600);
+                        }
+                    }
+                });
+
+                if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+                    this.probes.splice(i, 1);
+                }
+            }
+
+            // Update & Draw Asteroids
+            this.asteroids.forEach(ast => {
+                ast.x += ast.vx;
+                ast.y += ast.vy;
+
+                ctx.fillStyle = ast.color;
+                ctx.beginPath(); ctx.arc(ast.x, ast.y, ast.r, 0, Math.PI * 2); ctx.fill();
+
+                if (ast.deflected) {
+                    ctx.strokeStyle = '#22c55e';
+                    ctx.stroke();
+                }
+            });
+
+            this.animId = requestAnimationFrame(loop);
+        };
+
+        this.animId = requestAnimationFrame(loop);
+    }
+
+    destroy() {
+        if (this.animId) cancelAnimationFrame(this.animId);
+    }
+}
+
+/* ==========================================================================
+   GAME 6: SAVE THE ASTRONAUT (ECLSS Life Support Puzzles)
+   ========================================================================== */
+class SaveAstronautGame {
+    constructor(container) {
+        this.container = container;
+        this.currentPuzzleIdx = 0;
+        this.puzzles = [
+            {
+                title: 'CRITICAL: CO2 Scrubber Saturation',
+                scenario: 'Airlock CO2 has reached 4,800 ppm! Astronaut reports severe dizziness. Select the correct life support intervention:',
+                options: [
+                    { label: 'Vent Nitrogen into airlock', correct: false, reason: 'Nitrogen dilutes air without removing poisonous CO2!' },
+                    { label: 'Engage Secondary Lithium Hydroxide (LiOH) Canister', correct: true, reason: 'LiOH chemically binds CO2: 2 LiOH + CO2 -> Li2CO3 + H2O!' },
+                    { label: 'Chill air to freeze CO2 into dry ice', correct: false, reason: 'Requires -78.5°C, causing lethal crew hypothermia!' }
+                ]
+            },
+            {
+                title: 'PRESSURE DROP: Micrometeoroid Puncture',
+                scenario: 'Cabin pressure dropping at 0.5 kPa/min. Ultrasonic probe found a 3mm puncture in Avionics Bay 2.',
+                options: [
+                    { label: 'Deploy Self-Expanding Vacuum Resin Sealant Patch', correct: true, reason: 'Pressure differential instantaneously cures polymer patch against hull!' },
+                    { label: 'Spray water to freeze over hole', correct: false, reason: 'Water instantly sublimates into vapor in space vacuum!' },
+                    { label: 'Dump all oxygen to equalize pressure', correct: false, reason: 'Venting cabin air suffocates astronaut!' }
+                ]
+            }
+        ];
+        this.render();
+    }
+
+    render() {
+        const p = this.puzzles[this.currentPuzzleIdx];
+        this.container.innerHTML = `
+            <div class="w-full max-w-2xl bg-slate-950/90 rounded-2xl p-5 border-2 border-teal-500/40 shadow-2xl">
+                <div class="flex items-center justify-between text-xs font-mono mb-3">
+                    <span class="text-teal-400 font-bold">ECLSS EMERGENCY #${this.currentPuzzleIdx + 1} OF 2</span>
+                    <span class="text-amber-400">STATUS: LIFE SUPPORT FAULT</span>
+                </div>
+                <h3 class="text-lg font-bold orbitron text-white mb-2">${p.title}</h3>
+                <p class="text-xs text-slate-300 font-mono mb-4 leading-relaxed">${p.scenario}</p>
+
+                <div class="space-y-2 mb-4">
+                    ${p.options.map((opt, i) => `
+                        <button onclick="activeMiniGameInstance.chooseOption(${i})"
+                            class="w-full p-3 rounded-xl border border-slate-700 bg-slate-900 hover:border-teal-400 hover:bg-slate-800 text-left text-xs font-mono text-white transition flex items-center justify-between">
+                            <span>${opt.label}</span>
+                            <span class="text-slate-500">▶</span>
+                        </button>
+                    `).join('')}
+                </div>
+
+                <div id="eclssFeedback" class="text-xs font-mono p-3 rounded-lg bg-slate-900/60 border border-slate-800 text-slate-400 min-h-[40px]">
+                    Select the scientifically correct ECLSS procedure.
+                </div>
+            </div>
+        `;
+    }
+
+    chooseOption(idx) {
+        const p = this.puzzles[this.currentPuzzleIdx];
+        const opt = p.options[idx];
+        const fb = document.getElementById('eclssFeedback');
+
+        if (opt.correct) {
+            SpaceAudio.playChime();
+            updateScore(100);
+            fb.innerHTML = `✅ <strong class="text-emerald-300">SYSTEM RESTORED!</strong> ${opt.reason}`;
+
+            setTimeout(() => {
+                this.currentPuzzleIdx++;
+                if (this.currentPuzzleIdx < this.puzzles.length) {
+                    this.render();
+                } else {
+                    finishMission(
+                        200,
+                        "ECLSS Life Support Systems Preserved! In closed-loop space habitats, toxic CO2 is removed via solid amine / LiOH scrubbers, while cabin integrity relies on Whipple shielding and rapid vacuum polymer patches.",
+                        { puzzles_solved: 2 }
+                    );
+                }
+            }, 1200);
+        } else {
+            SpaceAudio.playWarning();
+            fb.innerHTML = `❌ <strong class="text-rose-400">PROCEDURE FAILED:</strong> ${opt.reason}`;
+        }
+    }
+
+    destroy() {}
+}
+
+/* ==========================================================================
+   GAME 7: GRAVITY & ORBIT LAB (Keplerian Orbital Sandbox)
+   ========================================================================== */
+class GravityOrbitLabGame {
+    constructor(container) {
+        this.container = container;
+        this.velocity = 6.2;
+        this.animId = null;
+        this.render();
+    }
+
+    render() {
+        this.container.innerHTML = `
+            <div class="w-full flex flex-col items-center">
+                <div class="w-full max-w-2xl flex items-center justify-between mb-2 px-2 text-xs font-mono">
+                    <div class="flex items-center gap-3">
+                        <span class="text-indigo-400 font-bold">VELOCITY: <span id="labVelText">${this.velocity}</span> KM/S</span>
+                        <input type="range" min="3.5" max="10.0" step="0.1" value="${this.velocity}" oninput="activeMiniGameInstance.setVel(this.value)" class="w-36 accent-indigo-400">
+                    </div>
+                    <span id="orbitTypeText" class="text-emerald-400 font-bold font-mono">STABLE CIRCULAR ORBIT</span>
+                </div>
+
+                <div class="relative w-full max-w-2xl aspect-[16/9] bg-slate-950 rounded-2xl overflow-hidden border-2 border-indigo-500/40 shadow-2xl">
+                    <canvas id="orbitCanvas" class="w-full h-full"></canvas>
+                </div>
+
+                <div class="text-[11px] text-slate-400 font-mono mt-2 text-center">
+                    Adjust launch velocity to observe Kepler orbits: Circular (6.2 km/s), Elliptical (7.5 km/s), and Escape Velocity (>8.8 km/s).
+                </div>
+            </div>
+        `;
+
+        this.initCanvas();
+    }
+
+    setVel(v) {
+        this.velocity = parseFloat(v);
+        document.getElementById('labVelText').textContent = this.velocity;
+        const typeEl = document.getElementById('orbitTypeText');
+        if (this.velocity < 5.0) {
+            typeEl.textContent = 'SUB-ORBITAL CRASH';
+            typeEl.className = 'text-rose-400 font-bold font-mono';
+        } else if (this.velocity >= 5.8 && this.velocity <= 6.8) {
+            typeEl.textContent = 'STABLE CIRCULAR ORBIT (v = sqrt(GM/r))';
+            typeEl.className = 'text-emerald-400 font-bold font-mono';
+            updateScore(5);
+        } else if (this.velocity < 8.8) {
+            typeEl.textContent = 'ELLIPTICAL ORBIT (Kepler 1st Law)';
+            typeEl.className = 'text-cyan-400 font-bold font-mono';
+        } else {
+            typeEl.textContent = 'HYPERBOLIC ESCAPE TRAJECTORY (v >= v_esc)';
+            typeEl.className = 'text-amber-400 font-bold font-mono';
+            updateScore(5);
+        }
+    }
+
+    initCanvas() {
+        const canvas = document.getElementById('orbitCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 450;
+        let angle = 0;
+
+        const loop = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Mars Planet
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath(); ctx.arc(400, 225, 36, 0, Math.PI * 2); ctx.fill();
+
+            // Trace Orbit Ellipse
+            ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const rx = 100 + (this.velocity - 5.0) * 45;
+            const ry = 100 + (this.velocity - 5.0) * 20;
+            ctx.ellipse(400 - (rx - 100) * 0.4, 225, Math.max(30, rx), Math.max(30, ry), 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Moving Satellite
+            angle += (this.velocity * 0.008);
+            const satX = (400 - (rx - 100) * 0.4) + Math.cos(angle) * rx;
+            const satY = 225 + Math.sin(angle) * ry;
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath(); ctx.arc(satX, satY, 6, 0, Math.PI * 2); ctx.fill();
+
+            this.animId = requestAnimationFrame(loop);
+        };
+
+        this.animId = requestAnimationFrame(loop);
+
+        // Auto complete after 6 seconds of experimenting
+        setTimeout(() => {
+            finishMission(
+                200,
+                "Orbital Mechanics Validated! In a stable orbit, centripetal acceleration matches gravitational pull (v = sqrt(GM/r)). Exceeding escape velocity (v_esc = sqrt(2GM/r)) frees spacecraft into hyperbolic deep-space paths.",
+                { final_vel: this.velocity }
+            );
+        }, 8000);
+    }
+
+    destroy() {
+        if (this.animId) cancelAnimationFrame(this.animId);
+    }
+}
+
+/* ==========================================================================
+   GAME 8: SPACE QUIZ BATTLE (Timed NASA Tournament)
+   ========================================================================== */
+class SpaceQuizBattleGame {
+    constructor(container) {
+        this.container = container;
+        this.qIdx = 0;
+        this.questions = [
+            {
+                q: 'What is the hottest planet in the Solar System?',
+                choices: ['Mercury', 'Venus', 'Mars', 'Jupiter'],
+                ans: 1,
+                fact: 'Venus is the hottest planet at 465°C due to a runaway greenhouse effect driven by a 96% CO2 atmosphere!'
+            },
+            {
+                q: 'What vital gas does NASA’s MOXIE instrument extract from Martian CO2?',
+                choices: ['Methane', 'Helium', 'Breathable Oxygen (O2)', 'Liquid Water'],
+                ans: 2,
+                fact: 'MOXIE splits carbon dioxide at 800°C via solid-oxide electrolysis: 2 CO2 -> 2 CO + O2!'
+            },
+            {
+                q: 'Why do astronauts lose bone mass in space if they do not exercise?',
+                choices: ['Microgravity removes mechanical weight loading from bones', 'Cosmic rays turn calcium into lead', 'Lack of sunlight dissolves joints', 'Space air has too much nitrogen'],
+                ans: 0,
+                fact: 'Without gravity loading, human bones lose up to 1.5% mineral density per month. Astronauts exercise 2 hours daily to counteract this!'
+            }
+        ];
+        this.render();
+    }
+
+    render() {
+        const q = this.questions[this.qIdx];
+        this.container.innerHTML = `
+            <div class="w-full max-w-xl bg-slate-950/90 rounded-2xl p-5 border-2 border-yellow-500/40 shadow-2xl">
+                <div class="flex items-center justify-between text-xs font-mono mb-2">
+                    <span class="text-yellow-400 font-bold">ROUND ${this.qIdx + 1} OF ${this.questions.length}</span>
+                    <span class="text-cyan-400">TIMED TRIVIA SHOWDOWN</span>
+                </div>
+                <h3 class="text-base font-bold orbitron text-white mb-4">${q.q}</h3>
+
+                <div class="space-y-2 mb-4">
+                    ${q.choices.map((c, i) => `
+                        <button onclick="activeMiniGameInstance.pickAnswer(${i})"
+                            class="w-full p-3 rounded-xl border border-slate-700 bg-slate-900 hover:border-yellow-400 hover:bg-slate-800 text-left text-xs font-mono text-white transition flex items-center justify-between">
+                            <span>${c}</span>
+                            <span class="text-slate-500">▶</span>
+                        </button>
+                    `).join('')}
+                </div>
+
+                <div id="quizFb" class="text-xs font-mono p-3 rounded-lg bg-slate-900/60 border border-slate-800 text-slate-400 min-h-[40px]">
+                    Select the correct answer to score battle points!
+                </div>
+            </div>
+        `;
+    }
+
+    pickAnswer(idx) {
+        const q = this.questions[this.qIdx];
+        const fb = document.getElementById('quizFb');
+
+        if (idx === q.ans) {
+            SpaceAudio.playChime();
+            updateScore(70);
+            fb.innerHTML = `✅ <strong class="text-emerald-300">CORRECT!</strong> ${q.fact}`;
+        } else {
+            SpaceAudio.playWarning();
+            fb.innerHTML = `❌ <strong class="text-rose-400">INCORRECT.</strong> ${q.fact}`;
+        }
+
+        setTimeout(() => {
+            this.qIdx++;
+            if (this.qIdx < this.questions.length) {
+                this.render();
+            } else {
+                finishMission(
+                    210,
+                    "Quiz Battle Victory! Deepening your knowledge of planetary atmospheres, human spaceflight physiology, and in-situ resource extraction prepares you for real aerospace careers.",
+                    { questions_answered: 3 }
+                );
+            }
+        }, 1400);
+    }
+
+    destroy() {}
+}
+</script>

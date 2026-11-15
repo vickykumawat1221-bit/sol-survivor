@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#06b6d4">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>SOL SURVIVOR // NASA Space Apps Mission Control & Digital Twin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #0D1117;
+            color: #E6EDF3;
+            font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+        }
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        .glow-border-cyan { box-shadow: 0 0 15px rgba(56, 189, 248, 0.25); border-color: rgba(56, 189, 248, 0.6); }
+        .glow-border-emerald { box-shadow: 0 0 15px rgba(16, 185, 129, 0.25); border-color: rgba(16, 185, 129, 0.6); }
+        .glow-border-rose { box-shadow: 0 0 20px rgba(225, 29, 72, 0.4); border-color: rgba(225, 29, 72, 0.8); }
+        .scanlines {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+        }
+        .hud-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+        .rec-glow {
+            animation: pulse-border 1.8s infinite;
+            border-color: #38bdf8 !important;
+        }
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.4); }
+            50% { box-shadow: 0 0 22px rgba(56, 189, 248, 0.85); }
+        }
+        .shake { animation: shake 0.45s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(3px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-5px, 0, 0); }
+            40%, 60% { transform: translate3d(5px, 0, 0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-3 md:p-5 scanlines relative">
+    <!-- IMMERSIVE OUTER SPACE BACKGROUND WITH TWINKLING STARFIELD & DETAILED MARS -->
+    {% include 'mission/space_background.html' %}
+
+    <div class="max-w-[1600px] mx-auto space-y-3 relative z-10">
+
+        <!-- TOP MISSION HEADER -->
+        <header class="hud-panel rounded-xl p-3 md:p-4 flex flex-wrap justify-between items-center gap-3 border-b border-cyan-500/30">
+            <div>
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3 h-3 rounded-full bg-cyan-400 animate-ping"></span>
+                    <h1 class="text-xl md:text-2xl font-black orbitron tracking-wider text-cyan-400">
+                        SOL SURVIVOR <span class="text-xs text-slate-400 font-mono font-normal">// MARS DIGITAL TWIN</span>
+                    </h1>
+                    <span class="hidden sm:inline bg-cyan-950 border border-cyan-800 text-cyan-300 text-[10px] px-2 py-0.5 rounded font-bold">
+                        NASA SPACE APPS 2026
+                    </span>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
+                    <span class="flex items-center"><span class="text-base mr-1" id="hudCadetAvatar">{{ cadet_avatar|default:"👨‍🚀" }}</span>CADET: <strong class="text-amber-300 font-bold ml-1" id="hudCadetName">{{ cadet_name }}</strong> <span class="text-[10px] text-cyan-400 ml-1">({{ cadet_age_bracket }})</span></span>
+                    <span class="text-slate-600">|</span>
+                    <span>TIER {{ state.level }}: <strong class="text-amber-400 font-bold" id="hudLevelName">{{ state.level_name|upper }}</strong></span>
+                    <span>RANK: <strong class="text-emerald-400 font-bold" id="hudRank">{{ rank|upper }}</strong></span>
+                    <span>XP: <strong class="text-cyan-300" id="hudXP">{{ state.xp }}</strong></span>
+                    <span class="text-slate-500">|</span>
+                    <!-- Role Selector -->
+                    <span class="flex items-center gap-1">
+                        ROLE:
+                        <select onchange="changeRole(this.value)" class="bg-slate-900 border border-slate-700 text-amber-300 rounded px-1.5 py-0.5 text-xs focus:outline-none">
+                            <option value="COMMANDER" {% if player_role == 'COMMANDER' %}selected{% endif %}>👨‍🚀 COMMANDER</option>
+                            <option value="ENGINEER" {% if player_role == 'ENGINEER' %}selected{% endif %}>⚡ FLIGHT ENGINEER</option>
+                            <option value="SCIENTIST" {% if player_role == 'SCIENTIST' %}selected{% endif %}>🔬 ASTROBIOLOGIST</option>
+                        </select>
+                    </span>
+                </div>
+            </div>
+
+            <!-- AUDIO, SPACE ACADEMY & TUTORIAL CONTROLS -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <!-- PWA Install Button -->
+                <button id="pwaInstallBtn" onclick="installPWA()" class="hidden px-2.5 py-1 rounded bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 text-xs font-black transition hover:brightness-110 flex items-center gap-1 shadow-md shadow-cyan-500/20">
+                    <span>📲</span> INSTALL
+                </button>
+                <!-- Switch Cadet / Logout Button -->
+                <a href="{% url 'logout' %}" class="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border-2 border-rose-500/60 text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-rose-950/50 hover:scale-105" title="Log Out & Switch Cadet">
+                    <span>🚪</span> LOGOUT CADET
+                </a>
+                <!-- Subtitle Toggle Button -->
+                <button onclick="toggleKidSubtitles()" id="kidSubtitleBtn" class="px-2.5 py-1 rounded text-xs font-bold border transition {% if show_subtitles %}bg-emerald-500/20 text-emerald-300 border-emerald-500/50{% else %}bg-slate-900 text-slate-400 border-slate-700{% endif %}" title="Toggle kid-friendly button subtitles">
+                    <span>🧒</span> SUBTITLES: <span id="subLabel">{% if show_subtitles %}ON{% else %}OFF{% endif %}</span>
+                </button>
+                <a href="{% url 'academy' %}" class="px-3 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-400 text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-indigo-950/60 animate-pulse">
+                    <span>🚀</span> SPACE ACADEMY (8 Mini-Games)
+                </a>
+                <button onclick="toggleReducedMotion()" id="motionToggleBtn" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-cyan-400 text-xs border border-slate-700 transition" title="Toggle Starfield Motion">
+                    ✨ MOTION: ON
+                </button>
+                <button onclick="openTutorialModal()" class="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 text-xs font-bold transition flex items-center gap-1">
+                    <span>📖</span> HOW TO PLAY
+                </button>
+                <button onclick="toggleAudio()" id="audioBtn" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-700 transition" title="Toggle Sound FX">
+                    <span id="audioIcon">🔊</span> SFX
+                </button>
+                <button onclick="toggleVoice()" id="voiceBtn" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-700 transition" title="Toggle Radio Voice">
+                    <span id="voiceIcon">🎙️</span> COMMS
+                </button>
+
+                <!-- LEVEL TIER SELECTOR -->
+                <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                    <span class="text-[10px] text-slate-500 mr-1 hidden lg:inline font-bold">TIER:</span>
+                    {% for lvl_num, cfg in levels.items %}
+                    <button type="button" onclick="selectLevel({{ lvl_num }})" id="lvlBtn_{{ lvl_num }}"
+                        {% if lvl_num > unlocked_level %}disabled{% endif %}
+                        title="{{ cfg.tier }}"
+                        class="px-2.5 py-1 text-xs rounded font-bold transition
+                        {% if state.level == lvl_num %} bg-cyan-500 text-slate-950 font-black shadow-md shadow-cyan-500/40
+                        {% elif lvl_num <= unlocked_level %} bg-slate-900 text-cyan-400 hover:bg-slate-800 border border-cyan-800/80
+                        {% else %} bg-slate-950 text-slate-600 cursor-not-allowed border border-slate-900 {% endif %}">
+                        L{{ lvl_num }} {% if lvl_num > unlocked_level %}🔒{% endif %}
+                    </button>
+                    {% endfor %}
+                </div>
+
+                <!-- SOL COUNTER -->
+                <div class="bg-slate-950 border-2 border-cyan-500/70 px-4 py-1.5 rounded-lg text-center shadow-lg shadow-cyan-500/20">
+                    <div class="text-[9px] text-cyan-400 tracking-widest uppercase font-bold">MARTIAN SOL</div>
+                    <div class="text-xl md:text-2xl font-black orbitron text-white">
+                        SOL <span id="hudSol">{{ state.sol }}</span> <span class="text-xs text-slate-400 font-mono">/ {{ state.target_sols }}</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- GLOWING MISSION BADGES RIBBON -->
+        <div id="earnedBadgesContainer" class="hud-panel rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 border border-cyan-500/30 bg-slate-950/80">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs uppercase font-bold text-slate-300 font-mono flex items-center gap-1.5">
+                    <span>🎖️</span> EARNED BADGES:
+                </span>
+                <div id="badgesPillList" class="flex flex-wrap items-center gap-2">
+                    {% for b in earned_badges %}
+                        {% if b == supreme_badge %}
+                        <span class="px-3 py-1 rounded-full text-xs font-black font-mono bg-gradient-to-r from-amber-400/30 via-yellow-400/40 to-cyan-400/30 text-yellow-300 border-2 border-amber-400 shadow-[0_0_18px_rgba(251,191,36,0.6)] animate-pulse flex items-center gap-1.5">
+                            {{ b }}
+                        </span>
+                        {% else %}
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-cyan-950/90 text-cyan-300 border border-cyan-400/70 shadow-[0_0_10px_rgba(6,182,212,0.4)] flex items-center gap-1">
+                            {{ b }}
+                        </span>
+                        {% endif %}
+                    {% empty %}
+                        <span class="text-xs text-slate-500 font-mono italic">
+                            No badges earned yet. Clear Martian missions to unlock ranks & credentials!
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-[11px] font-mono text-slate-400">CLEARED: <strong class="text-cyan-300 font-bold" id="clearedCount">{{ completed_missions|length }}</strong> / 4 SECTORS</span>
+                {% if all_missions_completed %}
+                <span class="px-2.5 py-0.5 rounded bg-amber-500/20 border border-amber-400 text-amber-300 text-xs font-black orbitron animate-bounce flex items-center gap-1">
+                    <span>🏆</span> APEX SURVIVOR
+                </span>
+                {% endif %}
+                <a href="{% url 'certificate' %}" class="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/60 text-xs font-bold transition flex items-center gap-1">
+                    <span>📜</span> View Certificate
+                </a>
+            </div>
+        </div>
+
+        <!-- MULTI-WORKSTATION NAVIGATION TABS -->
+        <nav class="flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-2 text-xs font-bold font-mono">
+            <button onclick="switchTab('habitat')" id="tabBtn_habitat" class="px-3 py-1.5 rounded-lg transition border border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md flex items-center gap-1.5">
+                <span>🪐</span> MISSION CONTROL
+            </button>
+            <button onclick="switchTab('digital_twin')" id="tabBtn_digital_twin" class="px-3 py-1.5 rounded-lg transition border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 flex items-center gap-1.5">
+                <span>🔬</span> 7-MODULE DIGITAL TWIN
+            </button>
+            <button onclick="switchTab('ai_commander')" id="tabBtn_ai_commander" class="px-3 py-1.5 rounded-lg transition border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 flex items-center gap-1.5">
+                <span>🤖</span> AI COMMANDER & CHAT
+            </button>
+            <button onclick="switchTab('nasa_data')" id="tabBtn_nasa_data" class="px-3 py-1.5 rounded-lg transition border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 flex items-center gap-1.5">
+                <span>📡</span> NASA DATA CENTER
+            </button>
+            <button onclick="switchTab('crisis_center')" id="tabBtn_crisis_center" class="px-3 py-1.5 rounded-lg transition border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 flex items-center gap-1.5">
+                <span>🚨</span> CRISIS & REPAIRS
+            </button>
+            <button onclick="switchTab('forecast')" id="tabBtn_forecast" class="px-3 py-1.5 rounded-lg transition border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 flex items-center gap-1.5">
+                <span>📈</span> SURVIVAL FORECAST
+            </button>
+            <button onclick="switchTab('curriculum')" id="tabBtn_curriculum" class="px-3 py-1.5 rounded-lg transition border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 flex items-center gap-1.5">
+                <span>🎓</span> STEM ACADEMY & QUIZ
+            </button>
+            <button onclick="switchTab('replay')" id="tabBtn_replay" class="px-3 py-1.5 rounded-lg transition border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 flex items-center gap-1.5">
+                <span>📜</span> MISSION REPLAY
+            </button>
+            <a href="{% url 'academy' %}" class="px-3 py-1.5 rounded-lg border border-indigo-400 bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-200 font-bold flex items-center gap-1.5 shadow-md shadow-indigo-950/60 animate-pulse">
+                <span>🚀</span> SPACE ACADEMY (8 MINI-GAMES)
+            </a>
+            <a href="{% url 'mission_report' %}" class="ml-auto px-3 py-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition flex items-center gap-1.5">
+                <span>📊</span> FLIGHT REPORT & AUDIT
+            </a>
+        </nav>
+
+        <!-- CLUTCH / ACHIEVEMENT BANNER -->
+        <div id="achievementBanner" class="{% if not state.badge %}hidden{% endif %} bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border-2 border-amber-400 text-amber-300 px-4 py-2 rounded-lg text-center font-bold animate-bounce shadow-lg shadow-amber-500/10 font-mono text-xs">
+            🏆 <span id="achievementText">{{ state.badge }}</span>
+        </div>
+
+        <!-- 6-CORE CLOSED-LOOP TELEMETRY METERS -->
+        <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <!-- 1. POWER -->
+            <div class="hud-panel p-2.5 rounded-lg hover:border-amber-500/60 transition cursor-pointer" onclick="openModuleDetailModal('solar_arrays')">
+                <div class="flex justify-between items-center text-xs mb-1">
+                    <span class="text-slate-300 font-bold">⚡ POWER</span>
+                    <span id="meterPowerText" class="font-bold font-mono text-sm {% if state.power <= 20 %}text-rose-400{% elif state.power <= 50 %}text-amber-400{% else %}text-emerald-400{% endif %}">{{ state.power }}%</span>
+                </div>
+                <div class="w-full bg-slate-950 h-2.5 rounded overflow-hidden border border-slate-800">
+                    <div id="meterPowerBar" class="h-full rounded-sm transition-all duration-500 {% if state.power > 50 %}bg-emerald-500{% elif state.power > 20 %}bg-amber-500{% else %}bg-rose-600 animate-pulse{% endif %}" style="width: {{ state.power }}%"></div>
+                </div>
+                <div class="text-[9px] text-slate-400 mt-1 flex justify-between">
+                    <span>SOLAR & RTG</span>
+                    <span id="statPowerUnits" class="text-cyan-400 font-mono">{{ telemetry.battery_kwh }} kWh</span>
+                </div>
+            </div>
+
+            <!-- 2. OXYGEN -->
+            <div class="hud-panel p-2.5 rounded-lg hover:border-cyan-500/60 transition cursor-pointer" onclick="openModuleDetailModal('moxie')">
+                <div class="flex justify-between items-center text-xs mb-1">
+                    <span class="text-slate-300 font-bold">🫁 OXYGEN</span>
+                    <span id="meterOxygenText" class="font-bold font-mono text-sm {% if state.oxygen <= 20 %}text-rose-400{% elif state.oxygen <= 50 %}text-amber-400{% else %}text-emerald-400{% endif %}">{{ state.oxygen }}%</span>
+                </div>
+                <div class="w-full bg-slate-950 h-2.5 rounded overflow-hidden border border-slate-800">
+                    <div id="meterOxygenBar" class="h-full rounded-sm transition-all duration-500 {% if state.oxygen > 50 %}bg-emerald-500{% elif state.oxygen > 20 %}bg-amber-500{% else %}bg-rose-600 animate-pulse{% endif %}" style="width: {{ state.oxygen }}%"></div>
+                </div>
+                <div class="text-[9px] text-slate-400 mt-1 flex justify-between">
+                    <span>MOXIE SOEC</span>
+                    <span id="statOxygenUnits" class="text-cyan-400 font-mono">{{ telemetry.o2_kpa }} kPa</span>
+                </div>
+            </div>
+
+            <!-- 3. FOOD -->
+            <div class="hud-panel p-2.5 rounded-lg hover:border-emerald-500/60 transition cursor-pointer" onclick="openModuleDetailModal('hydroponics')">
+                <div class="flex justify-between items-center text-xs mb-1">
+                    <span class="text-slate-300 font-bold">🌱 FOOD</span>
+                    <span id="meterFoodText" class="font-bold font-mono text-sm {% if state.food <= 20 %}text-rose-400{% elif state.food <= 50 %}text-amber-400{% else %}text-emerald-400{% endif %}">{{ state.food }}%</span>
+                </div>
+                <div class="w-full bg-slate-950 h-2.5 rounded overflow-hidden border border-slate-800">
+                    <div id="meterFoodBar" class="h-full rounded-sm transition-all duration-500 {% if state.food > 50 %}bg-emerald-500{% elif state.food > 20 %}bg-amber-500{% else %}bg-rose-600 animate-pulse{% endif %}" style="width: {{ state.food }}%"></div>
+                </div>
+                <div class="text-[9px] text-slate-400 mt-1 flex justify-between">
+                    <span>HYDROPONICS</span>
+                    <span id="statFoodUnits" class="text-cyan-400 font-mono">{{ state.food }}00 kcal</span>
+                </div>
+            </div>
+
+            <!-- 4. WATER -->
+            <div class="hud-panel p-2.5 rounded-lg hover:border-sky-500/60 transition cursor-pointer" onclick="openModuleDetailModal('water_recycler')">
+                <div class="flex justify-between items-center text-xs mb-1">
+                    <span class="text-slate-300 font-bold">💧 WATER</span>
+                    <span id="meterWaterText" class="font-bold font-mono text-sm {% if state.water <= 20 %}text-rose-400{% elif state.water <= 50 %}text-amber-400{% else %}text-emerald-400{% endif %}">{{ state.water }}%</span>
+                </div>
+                <div class="w-full bg-slate-950 h-2.5 rounded overflow-hidden border border-slate-800">
+                    <div id="meterWaterBar" class="h-full rounded-sm transition-all duration-500 {% if state.water > 50 %}bg-emerald-500{% elif state.water > 20 %}bg-amber-500{% else %}bg-rose-600 animate-pulse{% endif %}" style="width: {{ state.water }}%"></div>
+                </div>
+                <div class="text-[9px] text-slate-400 mt-1 flex justify-between">
+                    <span>RECLAMATION</span>
+                    <span id="statWaterUnits" class="text-cyan-400 font-mono">{{ telemetry.water_liters }} L</span>
+                </div>
+            </div>
+
+            <!-- 5. RADIATION SHIELD -->
+            <div class="hud-panel p-2.5 rounded-lg hover:border-indigo-500/60 transition cursor-pointer" onclick="openModuleDetailModal('radiation_shield')">
+                <div class="flex justify-between items-center text-xs mb-1">
+                    <span class="text-slate-300 font-bold">🛡️ SHIELD</span>
+                    <span id="meterShieldText" class="font-bold font-mono text-sm {% if state.shielding <= 20 %}text-rose-400{% elif state.shielding <= 50 %}text-amber-400{% else %}text-emerald-400{% endif %}">{{ state.shielding }}%</span>
+                </div>
+                <div class="w-full bg-slate-950 h-2.5 rounded overflow-hidden border border-slate-800">
+                    <div id="meterShieldBar" class="h-full rounded-sm transition-all duration-500 {% if state.shielding > 50 %}bg-emerald-500{% elif state.shielding > 20 %}bg-amber-500{% else %}bg-rose-600 animate-pulse{% endif %}" style="width: {{ state.shielding }}%"></div>
+                </div>
+                <div class="text-[9px] text-slate-400 mt-1 flex justify-between">
+                    <span>DEFLECTOR</span>
+                    <span id="statShieldUnits" class="text-cyan-400 font-mono">{{ telemetry.rad_msv }} mSv</span>
+                </div>
+            </div>
+
+            <!-- 6. HAB INTEGRITY -->
+            <div class="hud-panel p-2.5 rounded-lg hover:border-purple-500/60 transition cursor-pointer" onclick="openModuleDetailModal('central_hab')">
+                <div class="flex justify-between items-center text-xs mb-1">
+                    <span class="text-slate-300 font-bold">🏛️ INTEGRITY</span>
+                    <span id="meterIntegrityText" class="font-bold font-mono text-sm {% if state.integrity <= 20 %}text-rose-400{% elif state.integrity <= 50 %}text-amber-400{% else %}text-emerald-400{% endif %}">{{ state.integrity }}%</span>
+                </div>
+                <div class="w-full bg-slate-950 h-2.5 rounded overflow-hidden border border-slate-800">
+                    <div id="meterIntegrityBar" class="h-full rounded-sm transition-all duration-500 {% if state.integrity > 50 %}bg-emerald-500{% elif state.integrity > 20 %}bg-amber-500{% else %}bg-rose-600 animate-pulse{% endif %}" style="width: {{ state.integrity }}%"></div>
+                </div>
+                <div class="text-[9px] text-slate-400 mt-1 flex justify-between">
+                    <span>HULL SEALS</span>
+                    <span id="statIntegrityUnits" class="text-cyan-400 font-mono">WHIPPLE SHIELD</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 1: MISSION CONTROL PRIMARY WORKSTATION -->
+        <!-- ========================================== -->
+        <main id="tabContent_habitat" class="space-y-3">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+                <!-- LEFT: PRIMARY BUS LED GAUGES -->
+                <div class="lg:col-span-2 hud-panel rounded-xl p-3 flex flex-col justify-between">
+                    <div class="text-[11px] text-cyan-400 uppercase tracking-widest text-center border-b border-cyan-900/40 pb-2 font-bold font-mono">
+                        PRIMARY BUS FEED
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-2 my-auto py-2 h-64">
+                        <div class="flex flex-col items-center justify-between h-full bg-slate-950/80 p-1 rounded border border-slate-800">
+                            <div class="w-full bg-black rounded h-48 relative flex items-end p-0.5 overflow-hidden">
+                                <div id="vertPowerBar" class="w-full transition-all duration-500 rounded-sm bg-amber-500" style="height: {{ state.power }}%"></div>
+                            </div>
+                            <div class="text-[9px] font-bold text-amber-400 mt-1">POWER</div>
+                            <div id="vertPowerVal" class="text-[10px] text-white font-mono font-bold">{{ state.power }}%</div>
+                        </div>
+
+                        <div class="flex flex-col items-center justify-between h-full bg-slate-950/80 p-1 rounded border border-slate-800">
+                            <div class="w-full bg-black rounded h-48 relative flex items-end p-0.5 overflow-hidden">
+                                <div id="vertOxygenBar" class="w-full transition-all duration-500 rounded-sm bg-emerald-400" style="height: {{ state.oxygen }}%"></div>
+                            </div>
+                            <div class="text-[9px] font-bold text-emerald-400 mt-1">OXYGEN</div>
+                            <div id="vertOxygenVal" class="text-[10px] text-white font-mono font-bold">{{ state.oxygen }}%</div>
+                        </div>
+
+                        <div class="flex flex-col items-center justify-between h-full bg-slate-950/80 p-1 rounded border border-slate-800">
+                            <div class="w-full bg-black rounded h-48 relative flex items-end p-0.5 overflow-hidden">
+                                <div id="vertFoodBar" class="w-full transition-all duration-500 rounded-sm bg-emerald-500" style="height: {{ state.food }}%"></div>
+                            </div>
+                            <div class="text-[9px] font-bold text-emerald-500 mt-1">FOOD</div>
+                            <div id="vertFoodVal" class="text-[10px] text-white font-mono font-bold">{{ state.food }}%</div>
+                        </div>
+                    </div>
+
+                    <div class="text-[9px] text-slate-500 text-center font-mono">
+                        CLOSED-LOOP BUS
+                    </div>
+                </div>
+
+                <!-- CENTER: 7-MODULE INTERACTIVE DIGITAL TWIN SCHEMATIC -->
+                <div class="lg:col-span-6 hud-panel rounded-xl p-3 flex flex-col justify-between relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-2 z-10 relative">
+                        <span class="text-xs text-cyan-400 tracking-widest uppercase flex items-center gap-2 font-bold font-mono">
+                            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                            7-SUBSYSTEM DIGITAL TWIN ARCHITECTURE
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <span id="hudCrewStatusBadge" class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-{{ crew_status_color }}/20 border border-{{ crew_status_color }} text-{{ crew_status_color }}">
+                                CREW: <span id="hudCrewStatusText">{{ crew_status }}</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- SVG 7-MODULE HABITAT SCHEMATIC -->
+                    <div class="relative bg-slate-950 rounded-lg border border-slate-800/80 p-1 overflow-hidden h-72 flex items-center justify-center">
+                        <svg id="habitatSvg" viewBox="0 0 640 300" class="w-full h-full select-none relative z-20 font-mono">
+                            <defs>
+                                <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="3" result="blur" />
+                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                            </defs>
+
+                            <!-- Connecting Flow Conduits (Pipes) -->
+                            <!-- Solar to Hab -->
+                            <line x1="160" y1="150" x2="270" y2="150" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6,4"/>
+                            <!-- Hab to MOXIE -->
+                            <line x1="320" y1="105" x2="320" y2="65" stroke="#34d399" stroke-width="2.5" stroke-dasharray="6,4"/>
+                            <!-- Hab to Hydroponics -->
+                            <line x1="370" y1="150" x2="470" y2="150" stroke="#10b981" stroke-width="2.5" stroke-dasharray="6,4"/>
+                            <!-- Hab to Water Recycler -->
+                            <line x1="285" y1="185" x2="220" y2="240" stroke="#06b6d4" stroke-width="2.5" stroke-dasharray="6,4"/>
+                            <!-- Hab to Radiator -->
+                            <line x1="355" y1="185" x2="420" y2="240" stroke="#e11d48" stroke-width="2.5" stroke-dasharray="6,4"/>
+
+                            <!-- MODULE 1: SOLAR ARRAYS & RTG (Left) -->
+                            <g id="svgModuleSolar" class="cursor-pointer" onclick="openModuleDetailModal('solar_arrays')">
+                                <rect x="30" y="105" width="130" height="90" rx="10" fill="#070c14" stroke="#38bdf8" stroke-width="2.5"/>
+                                <text x="95" y="130" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">⚡ SOLAR / RTG</text>
+                                <text id="svgTextPower" x="95" y="155" fill="#f59e0b" font-size="16" font-weight="bold" text-anchor="middle">{{ state.power }}%</text>
+                                <text x="95" y="178" fill="#94a3b8" font-size="8" text-anchor="middle">Click to Inspect</text>
+                            </g>
+
+                            <!-- MODULE 2: CENTRAL HAB DOME (Center) -->
+                            <g id="svgModuleHab" class="cursor-pointer" onclick="openModuleDetailModal('central_hab')">
+                                <circle cx="320" cy="150" r="50" fill="#0b1120" stroke="#38bdf8" stroke-width="3" filter="url(#glow-cyan)"/>
+                                <circle cx="320" cy="150" r="38" fill="none" stroke="#1e293b" stroke-width="2"/>
+                                <text x="320" y="145" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">🏛️ HAB DOME</text>
+                                <text id="svgTextIntegrity" x="320" y="165" fill="#a855f7" font-size="13" font-weight="bold" text-anchor="middle">{{ state.integrity }}%</text>
+                            </g>
+
+                            <!-- MODULE 3: MOXIE OXYGEN PLANT (Top) -->
+                            <g id="svgModuleMoxie" class="cursor-pointer" onclick="openModuleDetailModal('moxie')">
+                                <rect x="255" y="12" width="130" height="52" rx="8" fill="#070c14" stroke="#34d399" stroke-width="2.5"/>
+                                <text x="320" y="32" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">🫁 MOXIE O₂ PLANT</text>
+                                <text id="svgTextOxygen" x="320" y="52" fill="#34d399" font-size="13" font-weight="bold" text-anchor="middle">{{ state.oxygen }}%</text>
+                            </g>
+
+                            <!-- MODULE 4: HYDROPONICS GREENHOUSE (Right) -->
+                            <g id="svgModuleHydro" class="cursor-pointer" onclick="openModuleDetailModal('hydroponics')">
+                                <rect x="470" y="105" width="135" height="90" rx="10" fill="#070c14" stroke="#10b981" stroke-width="2.5"/>
+                                <text x="537" y="130" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">🌱 HYDROPONICS</text>
+                                <text id="svgTextFood" x="537" y="155" fill="#34d399" font-size="16" font-weight="bold" text-anchor="middle">{{ state.food }}%</text>
+                                <text x="537" y="178" fill="#94a3b8" font-size="8" text-anchor="middle">Click to Inspect</text>
+                            </g>
+
+                            <!-- MODULE 5: WATER RECYCLER (Bottom Left) -->
+                            <g id="svgModuleWater" class="cursor-pointer" onclick="openModuleDetailModal('water_recycler')">
+                                <rect x="130" y="225" width="125" height="55" rx="8" fill="#070c14" stroke="#06b6d4" stroke-width="2.5"/>
+                                <text x="192" y="246" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">💧 WATER RECYCLER</text>
+                                <text id="svgTextWater" x="192" y="266" fill="#06b6d4" font-size="13" font-weight="bold" text-anchor="middle">{{ state.water }}%</text>
+                            </g>
+
+                            <!-- MODULE 6: THERMAL RADIATOR (Bottom Right) -->
+                            <g id="svgModuleThermal" class="cursor-pointer" onclick="openModuleDetailModal('thermal_radiator')">
+                                <rect x="385" y="225" width="125" height="55" rx="8" fill="#070c14" stroke="#e11d48" stroke-width="2.5"/>
+                                <text x="447" y="246" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">❄️ THERMAL LOOPS</text>
+                                <text id="svgTextThermal" x="447" y="266" fill="{% if state.temp_warning %}#ef4444{% else %}#10b981{% endif %}" font-size="12" font-weight="bold" text-anchor="middle">
+                                    {% if state.temp_warning %}FREEZE ({{ state.cascade_counter }}S){% else %}21.4°C REG{% endif %}
+                                </text>
+                            </g>
+
+                            <!-- MODULE 7: RADIATION DEFLECTOR (Top Shield Ring) -->
+                            <g id="svgModuleShield" class="cursor-pointer" onclick="openModuleDetailModal('radiation_shield')">
+                                <circle cx="320" cy="150" r="80" fill="none" stroke="#818cf8" stroke-width="2" stroke-dasharray="8,6" opacity="0.8"/>
+                                <rect x="410" y="45" width="105" height="40" rx="6" fill="#070c14" stroke="#818cf8" stroke-width="2"/>
+                                <text x="462" y="62" fill="#e2e8f0" font-size="9" font-weight="bold" text-anchor="middle">🛡️ DEFLECTOR</text>
+                                <text id="svgTextShield" x="462" y="78" fill="#818cf8" font-size="11" font-weight="bold" text-anchor="middle">{{ state.shielding }}%</text>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <div class="text-[10px] text-slate-400 mt-2 flex justify-between items-center bg-slate-950/70 p-2 rounded border border-slate-800 font-mono">
+                        <div>💡 <strong>Digital Twin Note:</strong> Click any module above for real-time telemetry, blueprints, and repair overhauls.</div>
+                        <span class="text-cyan-400 font-bold hidden sm:inline">7 SUBSYSTEMS MONITORED</span>
+                    </div>
+                </div>
+
+                <!-- RIGHT: CRT COMMAND TERMINAL -->
+                <div class="lg:col-span-4 hud-panel rounded-xl p-3 flex flex-col justify-between font-mono">
+                    <div>
+                        <div class="text-xs text-emerald-400 border-b border-emerald-900/80 pb-2 mb-2 flex justify-between items-center">
+                            <span class="flex items-center gap-2 font-bold tracking-wider">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                > COMMS_LOG.EXE // TELEMETRY TERMINAL
+                            </span>
+                            <span class="text-[10px] bg-emerald-950/90 border border-emerald-700 text-emerald-300 px-2 py-0.5 rounded">ONLINE</span>
+                        </div>
+
+                        <div id="terminalLogContainer" class="space-y-1 text-xs text-emerald-300 max-h-60 overflow-y-auto pr-1">
+                            {% for entry in state.log|slice:"-7:" %}
+                            <p class="leading-relaxed border-l-2 {% if 'CRISIS' in entry or 'FAILURE' in entry or 'WARNING' in entry %}border-rose-500 text-rose-300 bg-rose-950/30{% elif 'CLUTCH' in entry or 'ACCOMPLISHED' in entry %}border-amber-400 text-amber-200 bg-amber-950/30{% else %}border-emerald-600 pl-2{% endif %} pl-2 py-0.5 rounded-r">
+                                > {{ entry }}
+                            </p>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-t border-slate-900">
+                        <form onsubmit="executeCliCommand(event)" class="flex items-center gap-2">
+                            <span class="text-emerald-400 font-bold">></span>
+                            <input type="text" id="cliInput" placeholder="Type 'help' or command..." autocomplete="off"
+                                class="bg-black/90 border border-emerald-900/80 focus:border-emerald-500 text-emerald-300 px-2.5 py-1 text-xs rounded w-full focus:outline-none">
+                            <button type="submit" class="bg-emerald-950 hover:bg-emerald-800 text-emerald-300 text-xs px-3 py-1 rounded border border-emerald-700 transition font-bold">
+                                EXEC
+                            </button>
+                        </form>
+                        <div class="flex justify-between items-center text-[10px] text-slate-500 mt-1.5">
+                            <span>DSN DELAY: 14.2 MIN</span>
+                            <button onclick="selectAction('restart')" class="text-slate-400 hover:text-rose-400 underline">
+                                Reset Sol
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EMERGENCY COMMAND OVERRIDES (ONE-TIME RESERVES) -->
+            <div class="hud-panel p-2.5 rounded-xl flex flex-wrap justify-between items-center gap-2.5">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-rose-400 font-bold flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                        EMERGENCY OVERRIDES:
+                    </span>
+                    <span class="text-[11px] text-slate-400 hidden sm:inline font-mono">One-time reserve fail-safes for catastrophic events.</span>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="selectAction('emergency_rtg')" id="btn_emerg_rtg"
+                        {% if emergency_protocols.rtg_burst.used %}disabled{% endif %}
+                        title="Instantly clear freeze risk by bypassing thermal safety limits (-10% Power)"
+                        class="bg-amber-950 hover:bg-amber-800 disabled:bg-slate-950 disabled:text-slate-700 text-amber-300 border border-amber-600 disabled:border-slate-800 text-xs px-3 py-1.5 rounded font-mono font-bold transition">
+                        ⚡ RTG CORE OVERCLOCK
+                    </button>
+                    <button type="button" onclick="selectAction('emergency_o2')" id="btn_emerg_o2"
+                        {% if emergency_protocols.hyperbaric_purge.used %}disabled{% endif %}
+                        title="Dump emergency cryogenic O2 into hab atmosphere (+30% O2)"
+                        class="bg-cyan-950 hover:bg-cyan-800 disabled:bg-slate-950 disabled:text-slate-700 text-cyan-300 border border-cyan-600 disabled:border-slate-800 text-xs px-3 py-1.5 rounded font-mono font-bold transition">
+                        🫁 HYPERBARIC O2 PURGE
+                    </button>
+                    <button type="button" onclick="selectAction('emergency_shield')" id="btn_emerg_shield"
+                        {% if emergency_protocols.magnetic_pulse.used %}disabled{% endif %}
+                        title="Discharge capacitor bank for temporary electromagnetic invulnerability (+35% Shield)"
+                        class="bg-indigo-950 hover:bg-indigo-800 disabled:bg-slate-950 disabled:text-slate-700 text-indigo-300 border border-indigo-600 disabled:border-slate-800 text-xs px-3 py-1.5 rounded font-mono font-bold transition">
+                        🛡️ MAGNETOSPHERE PULSE
+                    </button>
+                </div>
+            </div>
+
+            <!-- SMART HOUSTON FLIGHT ADVISOR WITH DIRECT 1-CLICK EXECUTION -->
+            <div id="advisorCard" class="hud-panel p-3 rounded-xl border-l-4 {% if advisor.severity == 'danger' %}border-rose-500 bg-rose-950/20{% elif advisor.severity == 'warning' %}border-amber-400 bg-amber-950/20{% else %}border-cyan-400 bg-cyan-950/20{% endif %} flex flex-wrap justify-between items-center gap-3 font-mono">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-slate-900 border border-cyan-400 flex items-center justify-center text-base shadow">
+                        🤖
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">HOUSTON FLIGHT COPILOT // AUTOPILOT ADVISORY:</span>
+                            <span id="advisorTitle" class="text-xs font-bold text-white">{{ advisor.title }}</span>
+                        </div>
+                        <p id="advisorMessage" class="text-xs text-slate-300 mt-0.5">
+                            {{ advisor.message }}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="executeHoustonRecommendation()" id="btnHoustonExecute"
+                        class="bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 font-black px-4 py-2 rounded-lg text-xs shadow-lg shadow-cyan-500/25 transition transform hover:scale-105 active:scale-95 flex items-center gap-2 animate-pulse">
+                        <span>▶ CLICK TO EXECUTE:</span>
+                        <span id="advisorRecBadge" class="bg-black/25 px-2 py-0.5 rounded text-slate-950 font-extrabold uppercase">{{ advisor.rec_action }}</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- SURFACE ROBOTIC ASSETS (QUICK EXPEDITION DISPATCH) -->
+            <div class="hud-panel p-2.5 rounded-xl flex flex-wrap justify-between items-center gap-2.5 font-mono">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-amber-400 font-bold flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                        SURFACE ROBOTIC ASSETS:
+                    </span>
+                    <span class="text-[11px] text-slate-400 hidden sm:inline">1-Click Direct Field Sorties</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="selectAction('deploy_rover')" id="quick_deploy_perseverance"
+                        {% if rovers.perseverance.status != 'READY' %}disabled{% endif %}
+                        title="Dust-brush solar arrays (+18% Power restored)"
+                        class="bg-emerald-950 hover:bg-emerald-800 disabled:bg-slate-950 disabled:text-slate-700 text-emerald-300 border border-emerald-600 disabled:border-slate-800 text-xs px-3.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5">
+                        <span>🚜 PERSEVERANCE:</span>
+                        <span id="quickStatus_perseverance" class="font-normal text-emerald-400">
+                            {% if rovers.perseverance.status == 'READY' %}+18% POWER RESTORE{% else %}COOLDOWN ({{ rovers.perseverance.cooldown }} Sols){% endif %}
+                        </span>
+                    </button>
+                    <button type="button" onclick="selectAction('deploy_drone')" id="quick_deploy_ingenuity"
+                        {% if rovers.ingenuity.status != 'READY' %}disabled{% endif %}
+                        title="Aerial scout reveals incoming weather outlook (+75 XP)"
+                        class="bg-cyan-950 hover:bg-cyan-800 disabled:bg-slate-950 disabled:text-slate-700 text-cyan-300 border border-cyan-600 disabled:border-slate-800 text-xs px-3.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5">
+                        <span>🚁 INGENUITY:</span>
+                        <span id="quickStatus_ingenuity" class="font-normal text-cyan-400">
+                            {% if rovers.ingenuity.status == 'READY' %}WEATHER RECON{% else %}COOLDOWN ({{ rovers.ingenuity.cooldown }} Sols){% endif %}
+                        </span>
+                    </button>
+                    <button type="button" onclick="selectAction('deploy_drill')" id="quick_deploy_drill"
+                        {% if rovers.drill.status != 'READY' %}disabled{% endif %}
+                        title="Extract permafrost ice (+15% Food, +10% O2, +20% Water)"
+                        class="bg-indigo-950 hover:bg-indigo-800 disabled:bg-slate-950 disabled:text-slate-700 text-indigo-300 border border-indigo-600 disabled:border-slate-800 text-xs px-3.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5">
+                        <span>⛏️ ICE DRILL:</span>
+                        <span id="quickStatus_drill" class="font-normal text-indigo-400">
+                            {% if rovers.drill.status == 'READY' %}+15% FOOD / +20% H2O{% else %}COOLDOWN ({{ rovers.drill.cooldown }} Sols){% endif %}
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- PRIMARY 7-ACTION ENGINEERING DECK -->
+            <section class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs text-slate-400 uppercase tracking-widest flex items-center gap-2 font-bold font-mono">
+                        <span class="w-2 h-2 bg-cyan-400 rounded-full animate-ping"></span>
+                        SELECT ENGINEERING TRADE-OFF FOR NEXT SOL:
+                    </h2>
+                    <span class="text-xs text-cyan-400 font-mono">1 DECISION PER MARTIAN SOL</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2">
+                    <!-- 1. MOXIE -->
+                    <button type="button" onclick="selectAction('boost_oxygen')" id="btnAction_boost_oxygen"
+                        class="hud-panel hover:bg-cyan-950/60 border-2 border-cyan-500/60 hover:border-cyan-400 p-3 rounded-xl text-left transition transform hover:-translate-y-0.5 shadow-lg group active:scale-95 {% if advisor.rec_action == 'boost_oxygen' %}rec-glow{% endif %}">
+                        <div class="text-cyan-400 group-hover:text-cyan-300 font-bold text-xs flex justify-between items-center">
+                            <span>1. OVERCHARGE MOXIE</span>
+                            <span>🫁</span>
+                        </div>
+                        <div class="kid-sub text-[10px] text-cyan-300 font-mono font-bold mt-0.5 {% if not show_subtitles %}hidden{% endif %}">🫁 Make Fresh Air (O2)</div>
+                        <div class="text-xs text-emerald-400 mt-1.5 font-mono font-bold">+24% O2 Gen</div>
+                        <div class="text-[11px] text-rose-400 font-mono">-8% Power</div>
+                        <div id="recTag_boost_oxygen" class="{% if advisor.rec_action != 'boost_oxygen' %}hidden{% endif %} text-[9px] bg-cyan-400 text-black font-black px-1.5 py-0.5 rounded mt-2 text-center">★ RECOMMENDED</div>
+                    </button>
+
+                    <!-- 2. HYDROPONICS -->
+                    <button type="button" onclick="selectAction('boost_food')" id="btnAction_boost_food"
+                        class="hud-panel hover:bg-emerald-950/60 border-2 border-emerald-500/60 hover:border-emerald-400 p-3 rounded-xl text-left transition transform hover:-translate-y-0.5 shadow-lg group active:scale-95 {% if advisor.rec_action == 'boost_food' %}rec-glow{% endif %}">
+                        <div class="text-emerald-400 group-hover:text-emerald-300 font-bold text-xs flex justify-between items-center">
+                            <span>2. HYDROPONIC UV</span>
+                            <span>🌱</span>
+                        </div>
+                        <div class="kid-sub text-[10px] text-emerald-300 font-mono font-bold mt-0.5 {% if not show_subtitles %}hidden{% endif %}">🌱 Grow Space Plants</div>
+                        <div class="text-xs text-emerald-400 mt-1.5 font-mono font-bold">+24% Crops</div>
+                        <div class="text-[11px] text-rose-400 font-mono">-8% Power</div>
+                        <div id="recTag_boost_food" class="{% if advisor.rec_action != 'boost_food' %}hidden{% endif %} text-[9px] bg-emerald-400 text-black font-black px-1.5 py-0.5 rounded mt-2 text-center">★ RECOMMENDED</div>
+                    </button>
+
+                    <!-- 3. DEFLECTOR -->
+                    <button type="button" onclick="selectAction('boost_shields')" id="btnAction_boost_shields"
+                        class="hud-panel hover:bg-indigo-950/60 border-2 border-indigo-500/60 hover:border-indigo-400 p-3 rounded-xl text-left transition transform hover:-translate-y-0.5 shadow-lg group active:scale-95 {% if advisor.rec_action == 'boost_shields' %}rec-glow{% endif %}">
+                        <div class="text-indigo-400 group-hover:text-indigo-300 font-bold text-xs flex justify-between items-center">
+                            <span>3. DEFLECTOR COILS</span>
+                            <span>🛡️</span>
+                        </div>
+                        <div class="kid-sub text-[10px] text-indigo-300 font-mono font-bold mt-0.5 {% if not show_subtitles %}hidden{% endif %}">🛡️ Forcefield Shield</div>
+                        <div class="text-xs text-emerald-400 mt-1.5 font-mono font-bold">+26% Shield</div>
+                        <div class="text-[11px] text-rose-400 font-mono">-10% Power</div>
+                        <div id="recTag_boost_shields" class="{% if advisor.rec_action != 'boost_shields' %}hidden{% endif %} text-[9px] bg-indigo-400 text-black font-black px-1.5 py-0.5 rounded mt-2 text-center">★ RECOMMENDED</div>
+                    </button>
+
+                    <!-- 4. OPTIMIZE SOLAR -->
+                    <button type="button" onclick="selectAction('optimize_solar')" id="btnAction_optimize_solar"
+                        class="hud-panel hover:bg-sky-950/60 border-2 border-sky-500/60 hover:border-sky-400 p-3 rounded-xl text-left transition transform hover:-translate-y-0.5 shadow-lg group active:scale-95 {% if advisor.rec_action == 'optimize_solar' %}rec-glow{% endif %}">
+                        <div class="text-sky-400 group-hover:text-sky-300 font-bold text-xs flex justify-between items-center">
+                            <span>4. OPTIMIZE SOLAR</span>
+                            <span>☀️</span>
+                        </div>
+                        <div class="kid-sub text-[10px] text-sky-300 font-mono font-bold mt-0.5 {% if not show_subtitles %}hidden{% endif %}">☀️ Clean Solar Panels</div>
+                        <div class="text-xs text-emerald-400 mt-1.5 font-mono font-bold">+22% Clean Power</div>
+                        <div class="text-[11px] text-emerald-300 font-mono">0% Loss (Safe)</div>
+                        <div id="recTag_optimize_solar" class="{% if advisor.rec_action != 'optimize_solar' %}hidden{% endif %} text-[9px] bg-sky-400 text-black font-black px-1.5 py-0.5 rounded mt-2 text-center">★ RECOMMENDED</div>
+                    </button>
+
+                    <!-- 5. DIM HEATERS -->
+                    <button type="button" onclick="selectAction('conserve_power')" id="btnAction_conserve_power"
+                        class="hud-panel hover:bg-amber-950/60 border-2 border-amber-500/60 hover:border-amber-400 p-3 rounded-xl text-left transition transform hover:-translate-y-0.5 shadow-lg group active:scale-95 {% if advisor.rec_action == 'conserve_power' %}rec-glow{% endif %}">
+                        <div class="text-amber-400 group-hover:text-amber-300 font-bold text-xs flex justify-between items-center">
+                            <span>5. DIM HEATERS</span>
+                            <span>⚡</span>
+                        </div>
+                        <div class="kid-sub text-[10px] text-amber-300 font-mono font-bold mt-0.5 {% if not show_subtitles %}hidden{% endif %}">⚡ Save Battery Power</div>
+                        <div class="text-xs text-emerald-400 mt-1.5 font-mono font-bold">+25% Power Surge</div>
+                        <div class="text-[11px] text-rose-400 font-mono">-6% Food (Chills)</div>
+                        <div id="recTag_conserve_power" class="{% if advisor.rec_action != 'conserve_power' %}hidden{% endif %} text-[9px] bg-amber-400 text-black font-black px-1.5 py-0.5 rounded mt-2 text-center">★ RECOMMENDED</div>
+                    </button>
+
+                    <!-- 6. PURIFY WATER -->
+                    <button type="button" onclick="selectAction('recycle_water')" id="btnAction_recycle_water"
+                        class="hud-panel hover:bg-cyan-950/60 border-2 border-cyan-500/60 hover:border-cyan-400 p-3 rounded-xl text-left transition transform hover:-translate-y-0.5 shadow-lg group active:scale-95 {% if advisor.rec_action == 'recycle_water' %}rec-glow{% endif %}">
+                        <div class="text-cyan-400 group-hover:text-cyan-300 font-bold text-xs flex justify-between items-center">
+                            <span>6. PURIFY WATER</span>
+                            <span>💧</span>
+                        </div>
+                        <div class="kid-sub text-[10px] text-cyan-300 font-mono font-bold mt-0.5 {% if not show_subtitles %}hidden{% endif %}">💧 Filter Drinking Water</div>
+                        <div class="text-xs text-emerald-400 mt-1.5 font-mono font-bold">+25% Water Rec</div>
+                        <div class="text-[11px] text-rose-400 font-mono">-6% Power</div>
+                        <div id="recTag_recycle_water" class="{% if advisor.rec_action != 'recycle_water' %}hidden{% endif %} text-[9px] bg-cyan-400 text-black font-black px-1.5 py-0.5 rounded mt-2 text-center">★ RECOMMENDED</div>
+                    </button>
+
+                    <!-- 7. REINFORCE HULL SEALS -->
+                    <button type="button" onclick="selectAction('repair_seal')" id="btnAction_repair_seal"
+                        class="hud-panel hover:bg-purple-950/60 border-2 border-purple-500/60 hover:border-purple-400 p-3 rounded-xl text-left transition transform hover:-translate-y-0.5 shadow-lg group active:scale-95 {% if advisor.rec_action == 'repair_seal' %}rec-glow{% endif %}">
+                        <div class="text-purple-400 group-hover:text-purple-300 font-bold text-xs flex justify-between items-center">
+                            <span>7. REINFORCE HULL</span>
+                            <span>🏛️</span>
+                        </div>
+                        <div class="kid-sub text-[10px] text-purple-300 font-mono font-bold mt-0.5 {% if not show_subtitles %}hidden{% endif %}">🏛️ Fix Wall Leaks & Base Seal</div>
+                        <div class="text-xs text-emerald-400 mt-1.5 font-mono font-bold">+25% Integrity</div>
+                        <div class="text-[11px] text-rose-400 font-mono">-6% Power</div>
+                        <div id="recTag_repair_seal" class="{% if advisor.rec_action != 'repair_seal' %}hidden{% endif %} text-[9px] bg-purple-400 text-black font-black px-1.5 py-0.5 rounded mt-2 text-center">★ RECOMMENDED</div>
+                    </button>
+                        <div class="text-[11px] text-rose-400 font-mono">-6% Power</div>
+                        <div id="recTag_repair_seal" class="{% if advisor.rec_action != 'repair_seal' %}hidden{% endif %} text-[9px] bg-purple-400 text-black font-black px-1.5 py-0.5 rounded mt-2 text-center">★ RECOMMENDED</div>
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- TAB 2: FULL 7-MODULE DIGITAL TWIN VIEWPORT -->
+        <!-- ========================================== -->
+        <section id="tabContent_digital_twin" class="hidden hud-panel p-5 rounded-2xl space-y-4 font-mono">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div>
+                    <h2 class="text-base font-bold text-cyan-400 orbitron flex items-center gap-2">
+                        <span>🔬</span> INTERACTIVE 7-SUBSYSTEM MARS HABITAT DIGITAL TWIN
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Real-time status of all closed-loop life support modules. Click any module to inspect blueprints and dispatch repairs.</p>
+                </div>
+                <span class="text-xs bg-cyan-950 border border-cyan-800 text-cyan-300 px-3 py-1 rounded font-bold">
+                    SYSTEM STATUS: SYNCHRONIZED
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="digitalTwinModuleCards">
+                {% for mod_key, mod in modules.items %}
+                <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col justify-between hover:border-cyan-500/60 transition cursor-pointer" onclick="openModuleDetailModal('{{ mod_key }}')">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-sm font-bold text-white">{{ mod.name }}</h3>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded {% if mod.status == 'NOMINAL' %}bg-emerald-950 text-emerald-400 border border-emerald-800{% elif mod.status == 'STRESSED' %}bg-amber-950 text-amber-400 border border-amber-800{% else %}bg-rose-950 text-rose-400 border border-rose-800 animate-pulse{% endif %}">
+                                {{ mod.status }}
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 leading-relaxed mb-3">{{ mod.desc }}</p>
+                        <div class="space-y-1 mb-3">
+                            <div class="flex justify-between text-[11px] text-slate-400">
+                                <span>SUBSYSTEM HEALTH</span>
+                                <span class="font-bold text-white">{{ mod.health }}%</span>
+                            </div>
+                            <div class="w-full bg-slate-900 h-2 rounded overflow-hidden">
+                                <div class="h-full {% if mod.health > 50 %}bg-emerald-500{% elif mod.health > 25 %}bg-amber-500{% else %}bg-rose-500 animate-pulse{% endif %}" style="width: {{ mod.health }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="event.stopPropagation(); selectAction('repair_module_{{ mod_key }}')"
+                        class="w-full bg-slate-900 hover:bg-cyan-950 text-cyan-300 border border-cyan-800 text-xs py-1.5 rounded transition font-bold">
+                        🔧 OVERHAUL & REPAIR (-8% PWR)
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 3: AI COMMANDER & INTERACTIVE CHAT     -->
+        <!-- ========================================== -->
+        <section id="tabContent_ai_commander" class="hidden hud-panel p-5 rounded-2xl space-y-4 font-mono">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div>
+                    <h2 class="text-base font-bold text-cyan-400 orbitron flex items-center gap-2">
+                        <span>🤖</span> AI MISSION COMMANDER & CLOSED-LOOP DECISION TREE
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Virtually evaluates all legal moves, forecasts failure risks, and answers space systems questions.</p>
+                </div>
+                <span class="text-xs bg-slate-900 border border-cyan-800 text-cyan-300 px-3 py-1 rounded">
+                    ENGINE: DETERMINISTIC SIMULATION TREE + NLP
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Alternative Candidate Decisions Table -->
+                <div class="lg:col-span-7 bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-slate-800 pb-2">
+                        CURRENT 1-SOL ACTION CANDIDATE EVALUATION:
+                    </h3>
+                    <div class="space-y-2 text-xs">
+                        <div class="p-3 bg-cyan-950/40 border border-cyan-500/60 rounded-lg">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-cyan-300">★ RECOMMENDED: {{ advisor.rec_action|upper }}</span>
+                                <span class="bg-cyan-400 text-black px-2 py-0.5 rounded text-[10px] font-black">OPTIMAL MOVE</span>
+                            </div>
+                            <p class="text-slate-300 text-xs">{{ advisor.message }}</p>
+                        </div>
+
+                        <div class="space-y-1.5 pt-2">
+                            <span class="text-[11px] text-slate-500 uppercase font-bold">ALTERNATIVE MOVE RISK MATRIX:</span>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                                <div class="p-2 bg-slate-900 rounded border border-slate-800">
+                                    <strong class="text-white block">Optimize Solar Arrays:</strong>
+                                    <span class="text-emerald-400">+22% Power</span>, Zero crop freeze risk.
+                                </div>
+                                <div class="p-2 bg-slate-900 rounded border border-slate-800">
+                                    <strong class="text-white block">Dim Habitat Heaters:</strong>
+                                    <span class="text-emerald-400">+25% Power</span>, <span class="text-rose-400">-6% Food</span> (3 Sols to freeze).
+                                </div>
+                                <div class="p-2 bg-slate-900 rounded border border-slate-800">
+                                    <strong class="text-white block">Overcharge MOXIE:</strong>
+                                    <span class="text-emerald-400">+24% O2</span>, <span class="text-rose-400">-8% Power</span>.
+                                </div>
+                                <div class="p-2 bg-slate-900 rounded border border-slate-800">
+                                    <strong class="text-white block">Perseverance Sortie:</strong>
+                                    <span class="text-emerald-400">+18% Power</span>, restores array dust degradation.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive AI Mission Chat -->
+                <div class="lg:col-span-5 bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between h-[420px]">
+                    <div class="border-b border-slate-800 pb-2 mb-2 flex justify-between items-center">
+                        <span class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                            <span>💬</span> HOUSTON MISSION CONSULTANT CHAT
+                        </span>
+                        <span class="text-[9px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded">ONLINE</span>
+                    </div>
+
+                    <div id="aiChatBox" class="flex-1 overflow-y-auto space-y-2 text-xs pr-1">
+                        <div class="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-slate-300">
+                            🤖 <strong>Flight AI:</strong> Greetings Commander Vance. I am monitoring closed-loop life support telemetry. Ask me any space systems question, or request a tactical recommendation!
+                        </div>
+                    </div>
+
+                    <form onsubmit="submitAiChat(event)" class="mt-3 flex gap-2">
+                        <input type="text" id="aiChatInput" placeholder="Ask Flight AI (e.g., 'Why is power low?')..."
+                            class="bg-black border border-slate-700 focus:border-cyan-400 text-cyan-200 text-xs px-3 py-2 rounded-lg w-full focus:outline-none">
+                        <button type="submit" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs transition">
+                            SEND
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 4: REAL NASA DATA CENTER & PROVENANCE  -->
+        <!-- ========================================== -->
+        <section id="tabContent_nasa_data" class="hidden hud-panel p-5 rounded-2xl space-y-4 font-mono">
+            <div class="flex flex-wrap justify-between items-center border-b border-slate-800 pb-3 gap-2">
+                <div>
+                    <h2 class="text-base font-bold text-emerald-400 orbitron flex items-center gap-2">
+                        <span>📡</span> NASA PLANETARY DATA CENTER & SPACE WEATHER FEED
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Authentic NASA PDS & DONKI surface observations from Curiosity (Gale) & Perseverance (Jezero).</p>
+                </div>
+
+                <!-- Mode Toggle -->
+                <div class="flex items-center gap-2 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                    <span class="text-xs text-slate-400">DATA MODE:</span>
+                    <button onclick="toggleNasaDataMode('real')" id="btnNasaMode_real" class="px-3 py-1 text-xs rounded font-bold bg-emerald-500 text-slate-950 shadow">
+                        🟢 REAL DATA MODE (PDS/MEDA)
+                    </button>
+                    <button onclick="toggleNasaDataMode('simulated')" id="btnNasaMode_simulated" class="px-3 py-1 text-xs rounded font-bold bg-slate-900 text-slate-400 hover:text-white">
+                        🔵 DIGITAL TWIN SIMULATION
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Card 1: Martian Surface Weather -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+                        <div>
+                            <h3 class="text-xs font-bold text-emerald-400">MARTIAN SURFACE WEATHER</h3>
+                            <span class="text-[10px] text-slate-500">ROVER: Perseverance (Jezero Crater)</span>
+                        </div>
+                        <span id="badgeWeatherStatus" class="text-[9px] bg-emerald-950 text-emerald-400 border border-emerald-700 px-2 py-0.5 rounded font-bold">
+                            OBSERVED
+                        </span>
+                    </div>
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Atmospheric Pressure:</span>
+                            <span id="dataNasaPressure" class="font-bold text-white">752.0 Pa</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Air Temp (Max / Min):</span>
+                            <span id="dataNasaAirTemp" class="font-bold text-amber-300">-18.2°C / -79.4°C</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Ground Temp (Max / Min):</span>
+                            <span id="dataNasaGroundTemp" class="font-bold text-amber-300">+4.1°C / -84.3°C</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Atmospheric Opacity (&tau;):</span>
+                            <span id="dataNasaTau" class="font-bold text-cyan-400">0.54 (Clear Sky)</span>
+                        </div>
+                    </div>
+                    <div class="text-[9px] text-slate-500 bg-slate-900 p-2 rounded">
+                        <strong>Citation:</strong> NASA/JPL-Caltech/CAB (CSIC-INTA) MEDA Instrument Archive.
+                    </div>
+                </div>
+
+                <!-- Card 2: Space Weather DONKI -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+                        <div>
+                            <h3 class="text-xs font-bold text-amber-400">NASA DONKI SPACE WEATHER</h3>
+                            <span class="text-[10px] text-slate-500">HELIOSPHERIC OBSERVATORY</span>
+                        </div>
+                        <span id="badgeSpaceWeatherStatus" class="text-[9px] bg-amber-950 text-amber-400 border border-amber-700 px-2 py-0.5 rounded font-bold">
+                            DERIVED ENLIL
+                        </span>
+                    </div>
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Event Classification:</span>
+                            <span id="dataDonkiEvent" class="font-bold text-white">Coronal Mass Ejection (Class-X)</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Shock Transit Speed:</span>
+                            <span id="dataDonkiSpeed" class="font-bold text-amber-300">1,420 km/s</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Proton Flux (>10 MeV):</span>
+                            <span id="dataDonkiProtons" class="font-bold text-indigo-400">280.0 pfu</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Est. Surface Rad Dose:</span>
+                            <span id="dataDonkiDose" class="font-bold text-rose-400">1.45 mSv/Sol</span>
+                        </div>
+                    </div>
+                    <div class="text-[9px] text-slate-500 bg-slate-900 p-2 rounded">
+                        <strong>Citation:</strong> NASA Goddard CCMC DONKI Space Weather Notifications.
+                    </div>
+                </div>
+
+                <!-- Card 3: MOXIE Scientific Benchmarks -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+                        <div>
+                            <h3 class="text-xs font-bold text-cyan-400">MOXIE PDS BENCHMARK</h3>
+                            <span class="text-[10px] text-slate-500">SOLID OXIDE ELECTROLYSIS</span>
+                        </div>
+                        <span class="text-[9px] bg-cyan-950 text-cyan-400 border border-cyan-700 px-2 py-0.5 rounded font-bold">
+                            OBSERVED PDS
+                        </span>
+                    </div>
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Operating Temperature:</span>
+                            <span class="font-bold text-white">800°C (YSZ Membrane)</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Max Production Rate:</span>
+                            <span class="font-bold text-emerald-400">12.0 g O₂ / hour</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Oxygen Gas Purity:</span>
+                            <span class="font-bold text-emerald-300">99.6% Clean Breathable</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-900">
+                            <span class="text-slate-400">Mars Atmosphere Inflow:</span>
+                            <span class="font-bold text-cyan-400">95.3% CO₂ feed</span>
+                        </div>
+                    </div>
+                    <div class="text-[9px] text-slate-500 bg-slate-900 p-2 rounded">
+                        <strong>Citation:</strong> NASA Planetary Data System Atmospheres Node / MIT Haystack.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 5: CRISIS & REPAIRS CENTER             -->
+        <!-- ========================================== -->
+        <section id="tabContent_crisis_center" class="hidden hud-panel p-5 rounded-2xl space-y-4 font-mono">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div>
+                    <h2 class="text-base font-bold text-rose-400 orbitron flex items-center gap-2">
+                        <span>🚨</span> DYNAMIC CRISIS & EMERGENCY REPAIR CENTER
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Active scenario-driven emergencies and tactical repair missions.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="playCrisisAlarm(); speakComms('Red alert: Simulated Martian emergency klaxon triggered.');" class="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/50 text-xs font-bold transition flex items-center gap-1.5 shadow">
+                        <span>🔊</span> TEST CRISIS ALARM
+                    </button>
+                    <span class="text-xs bg-rose-950/80 border border-rose-700 text-rose-300 px-3 py-1 rounded font-bold">
+                        CRISIS ENGINE: REAL-TIME SIMULATION
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <!-- Active Crisis Card -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest border-b border-slate-800 pb-2">
+                        CURRENT PLANETARY EMERGENCY STATUS:
+                    </h3>
+                    {% if state.latest_crisis %}
+                    <div class="p-3 bg-rose-950/40 border border-rose-500 rounded-lg space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-rose-300 text-sm">🚨 {{ state.latest_crisis }}</span>
+                            <span class="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded font-black">CRITICAL</span>
+                        </div>
+                        <p class="text-xs text-slate-300">
+                            Automated habitat sensors detect subsystem stress. Deploy countermeasures or dispatch robotic repair sorties to prevent cascading failure!
+                        </p>
+                    </div>
+                    {% else %}
+                    <div class="p-4 bg-slate-900/40 border border-slate-800 rounded-lg text-center text-slate-400 text-xs">
+                        ✅ No active planetary emergencies detected. Subsystems operating in closed-loop equilibrium.
+                    </div>
+                    {% endif %}
+
+                    <div class="space-y-2 pt-2 text-xs">
+                        <span class="text-[11px] text-slate-500 uppercase font-bold">CRISIS PREVENTATIVE PROCEDURES:</span>
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                            <button onclick="selectAction('optimize_solar')" class="p-2 bg-slate-900 hover:bg-slate-800 text-sky-300 border border-slate-800 rounded text-left">
+                                <strong>Clear Dust Opacity:</strong> Clean arrays (+22% Power).
+                            </button>
+                            <button onclick="selectAction('deploy_drill')" class="p-2 bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-800 rounded text-left">
+                                <strong>Extract Permafrost:</strong> +15% Food / +20% Water.
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Field Repair Missions -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <h3 class="text-xs font-bold text-cyan-300 uppercase tracking-widest border-b border-slate-800 pb-2">
+                        AVAILABLE FIELD REPAIR MISSIONS:
+                    </h3>
+                    <div class="space-y-2 text-xs">
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800 flex justify-between items-center">
+                            <div>
+                                <strong class="text-white block">EVA Solar Squeegee & Gimbal Servicing</strong>
+                                <span class="text-[11px] text-slate-400">Restores Solar Array integrity to 100%. Reward: +150 XP.</span>
+                            </div>
+                            <button onclick="selectAction('repair_module_solar_arrays')" class="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold px-3 py-1.5 rounded text-xs">
+                                REPAIR (-8% PWR)
+                            </button>
+                        </div>
+
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800 flex justify-between items-center">
+                            <div>
+                                <strong class="text-white block">MOXIE Electrolysis Membrane Deglazing</strong>
+                                <span class="text-[11px] text-slate-400">Clears regolith clogs & restores O2 plant to 100%. Reward: +150 XP.</span>
+                            </div>
+                            <button onclick="selectAction('repair_module_moxie')" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-3 py-1.5 rounded text-xs">
+                                REPAIR (-8% PWR)
+                            </button>
+                        </div>
+
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800 flex justify-between items-center">
+                            <div>
+                                <strong class="text-white block">Water Loop Catalytic Filter Purge</strong>
+                                <span class="text-[11px] text-slate-400">Clears condenser biofilm & restores recycler to 100%. Reward: +150 XP.</span>
+                            </div>
+                            <button onclick="selectAction('repair_module_water_recycler')" class="bg-sky-600 hover:bg-sky-500 text-slate-950 font-bold px-3 py-1.5 rounded text-xs">
+                                REPAIR (-8% PWR)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 6: PREDICTIVE SURVIVAL FORECAST        -->
+        <!-- ========================================== -->
+        <section id="tabContent_forecast" class="hidden hud-panel p-5 rounded-2xl space-y-4 font-mono">
+            <div class="flex flex-wrap justify-between items-center border-b border-slate-800 pb-3 gap-2">
+                <div>
+                    <h2 class="text-base font-bold text-amber-400 orbitron flex items-center gap-2">
+                        <span>📈</span> 3-5 SOL PREDICTIVE SURVIVAL ANALYTICS
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Physics-based projection model identifying future resource bottlenecks before they happen.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-400">PREVIEW ACTION:</span>
+                    <button onclick="previewForecastAction('optimize_solar')" class="px-2 py-1 text-xs bg-slate-900 text-sky-400 border border-slate-800 rounded font-bold hover:bg-slate-800">
+                        + Solar
+                    </button>
+                    <button onclick="previewForecastAction('boost_oxygen')" class="px-2 py-1 text-xs bg-slate-900 text-emerald-400 border border-slate-800 rounded font-bold hover:bg-slate-800">
+                        + O2
+                    </button>
+                    <button onclick="previewForecastAction('conserve_power')" class="px-2 py-1 text-xs bg-slate-900 text-amber-400 border border-slate-800 rounded font-bold hover:bg-slate-800">
+                        + Conserve
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Forecast Chart -->
+                <div class="lg:col-span-8 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <canvas id="forecastChart" class="w-full h-72"></canvas>
+                </div>
+
+                <!-- Forecast Risk Card -->
+                <div class="lg:col-span-4 bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                    <div>
+                        <span class="text-xs text-slate-400 uppercase tracking-widest block mb-1">PROJECTED SURVIVAL RISK</span>
+                        <div id="forecastRiskBadge" class="text-xl font-bold text-{{ forecast_data.risk_color }}">
+                            {{ forecast_data.risk_tier }} ({{ forecast_data.risk_score }}%)
+                        </div>
+                        <p id="forecastSummary" class="text-xs text-slate-300 mt-2 leading-relaxed">
+                            {{ forecast_data.summary }}
+                        </p>
+                    </div>
+
+                    <div class="p-3 bg-slate-900/60 rounded border border-slate-800 text-[11px] space-y-1">
+                        <strong>Simulation Parameters:</strong>
+                        <div class="text-slate-400">Baseline Drain: -5% Power, -5% O2, -4% Food, -3% H2O, -3% Shield / Sol.</div>
+                        <div class="text-slate-400">Diurnal Cycle: Passive solar recharge (+8%) during daytime Sols.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 7: STEM CURRICULUM ACADEMY & QUIZZES   -->
+        <!-- ========================================== -->
+        <section id="tabContent_curriculum" class="hidden hud-panel p-5 rounded-2xl space-y-4 font-mono">
+            <div class="flex flex-wrap justify-between items-center border-b border-slate-800 pb-3 gap-2">
+                <div>
+                    <h2 class="text-base font-bold text-cyan-400 orbitron flex items-center gap-2">
+                        <span>🎓</span> NASA STEM LEARNING CENTER & INTERACTIVE QUIZZES
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Explore real NASA planetary science, master closed-loop engineering, and earn XP badges.</p>
+                </div>
+                <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                    <span>LEARNING TRACK:</span>
+                    <span class="text-cyan-300 font-bold">AGE 8-16 ADAPTIVE CURRICULUM</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for mod in curriculum %}
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <span>{{ mod.icon }}</span> {{ mod.title }}
+                            </h3>
+                            <span class="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded font-bold">
+                                NASA SCIENCE
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-2">{{ mod.summary }}</p>
+                        <ul class="text-xs text-slate-300 space-y-1 list-disc list-inside">
+                            {% for pt in mod.learning_points %}
+                            <li>{{ pt }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <!-- Interactive Mini Quiz -->
+                    <div class="pt-3 border-t border-slate-900 space-y-2">
+                        <div class="text-[11px] font-bold text-amber-300">
+                            ❓ QUICK KNOWLEDGE CHECK (+100 XP):
+                        </div>
+                        <p class="text-xs text-slate-300">{{ mod.quiz.question }}</p>
+                        <div class="grid grid-cols-1 gap-1.5" id="quizContainer_{{ mod.id }}">
+                            {% for opt in mod.quiz.options %}
+                            <button type="button" onclick="submitQuiz('{{ mod.id }}', {{ forloop.counter0 }})"
+                                class="text-left text-xs bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-cyan-300 px-3 py-1.5 rounded border border-slate-800 transition">
+                                {{ opt }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                        <div id="quizResult_{{ mod.id }}" class="hidden text-xs p-2 rounded mt-2"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 8: MISSION STEP REPLAY TIMELINE        -->
+        <!-- ========================================== -->
+        <section id="tabContent_replay" class="hidden hud-panel p-5 rounded-2xl space-y-4 font-mono">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div>
+                    <h2 class="text-base font-bold text-cyan-300 orbitron flex items-center gap-2">
+                        <span>📜</span> STEP-BY-STEP MISSION TIMELINE & REPLAY AUDIT
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Every player decision, resource delta, and crisis logged into SQLite database.</p>
+                </div>
+                <a href="{% url 'mission_report' %}" class="text-xs bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold px-3 py-1.5 rounded transition">
+                    VIEW COMPLETE FLIGHT AUDIT REPORT →
+                </a>
+            </div>
+
+            {% if step_logs %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs text-left">
+                    <thead class="text-[11px] text-slate-400 uppercase bg-slate-950 border-b border-slate-800">
+                        <tr>
+                            <th class="p-2.5">SOL</th>
+                            <th class="p-2.5">ACTION EXECUTED</th>
+                            <th class="p-2.5">POWER</th>
+                            <th class="p-2.5">OXYGEN</th>
+                            <th class="p-2.5">FOOD</th>
+                            <th class="p-2.5">WATER</th>
+                            <th class="p-2.5">SHIELD</th>
+                            <th class="p-2.5">ACTIVE EMERGENCY</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                        {% for step in step_logs %}
+                        <tr class="hover:bg-slate-950/50">
+                            <td class="p-2.5 font-bold text-cyan-400">SOL {{ step.sol }}</td>
+                            <td class="p-2.5 text-white font-bold">{{ step.action_label }}</td>
+                            <td class="p-2.5 text-amber-400">{{ step.resources_after.power }}%</td>
+                            <td class="p-2.5 text-emerald-400">{{ step.resources_after.oxygen }}%</td>
+                            <td class="p-2.5 text-emerald-300">{{ step.resources_after.food }}%</td>
+                            <td class="p-2.5 text-cyan-300">{{ step.resources_after.water }}%</td>
+                            <td class="p-2.5 text-indigo-400">{{ step.resources_after.shielding }}%</td>
+                            <td class="p-2.5">
+                                {% if step.active_crises %}
+                                    <span class="text-rose-400 font-bold">{{ step.active_crises.0 }}</span>
+                                {% else %}
+                                    <span class="text-slate-600">Nominal</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-10 text-slate-500 text-xs">
+                No recorded turns in database yet. Play Sol turns in Mission Control to build your flight replay timeline!
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- FOOTER & CERTIFICATE ACCESS -->
+        <footer class="border-t border-slate-800/80 pt-3 pb-2 text-xs text-slate-500 flex flex-wrap justify-between items-center gap-2 font-mono">
+            <div>
+                SOL SURVIVOR © 2026 | Educational Mars Mission Digital Twin | NASA Space Apps Challenge Project
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="{% url 'mission_report' %}" class="text-amber-400 hover:text-amber-300 underline font-bold">
+                    📊 View Flight Report
+                </a>
+                <a href="{% url 'certificate' %}" target="_blank" class="text-cyan-400 hover:text-cyan-300 font-bold underline flex items-center gap-1">
+                    📜 Commander Certificate
+                </a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- INTERACTIVE MODULE DETAIL INSPECTOR MODAL  -->
+    <!-- ========================================== -->
+    <div id="moduleModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4" onclick="closeModuleModal()">
+        <div class="bg-slate-900 border-2 border-cyan-400 rounded-2xl p-6 max-w-xl w-full shadow-2xl font-mono text-left" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                <h3 class="text-base font-bold text-cyan-300 orbitron flex items-center gap-2" id="modalModTitle">
+                    SUBSYSTEM INSPECTION
+                </h3>
+                <button onclick="closeModuleModal()" class="text-slate-400 hover:text-white text-base">✕</button>
+            </div>
+            <div class="space-y-3 text-xs leading-relaxed">
+                <p id="modalModDesc" class="text-slate-300"></p>
+                <div class="p-3 bg-slate-950 rounded border border-slate-800 space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Subsystem Health:</span>
+                        <span id="modalModHealth" class="font-bold text-emerald-400">100%</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Status Calibration:</span>
+                        <span id="modalModStatus" class="font-bold text-white">NOMINAL</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">NASA Hardware Blueprint:</span>
+                        <span class="text-cyan-300 font-bold">Artemis Base Camp Spec</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-5 pt-3 border-t border-slate-800 flex justify-between items-center">
+                <button onclick="closeModuleModal()" class="text-slate-400 hover:text-white text-xs">Close</button>
+                <button id="modalModRepairBtn" onclick="repairInspectedModule()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-4 py-1.5 rounded text-xs transition">
+                    🔧 OVERHAUL & REPAIR (-8% PWR)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TUTORIAL MODAL -->
+    <div id="tutorialModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4" onclick="closeTutorialModal()">
+        <div class="bg-slate-900 border-2 border-amber-400 rounded-2xl p-6 max-w-xl w-full shadow-2xl font-mono text-left" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                <h3 class="text-base font-bold text-amber-300 orbitron">🚀 CADET SURVIVAL ACADEMY</h3>
+                <button onclick="closeTutorialModal()" class="text-slate-400 hover:text-white text-base">✕</button>
+            </div>
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <p><strong>1. Never Hit 0%:</strong> If Power, O2, Food, Water, or Shield hits 0%, mission fails instantly.</p>
+                <p><strong>2. 1 Action Per Sol:</strong> Choose 1 of the 7 engineering decisions each Martian Sol.</p>
+                <p><strong>3. Use Clean Power:</strong> When battery is low, click <strong class="text-sky-300">4. OPTIMIZE SOLAR</strong> or dispatch <strong class="text-emerald-300">PERSEVERANCE</strong>.</p>
+                <p><strong>4. 1-Click Copilot:</strong> Follow the glowing Houston Copilot button whenever a warning strikes!</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-800 text-right">
+                <button onclick="closeTutorialModal()" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-1.5 rounded text-xs">
+                    I AM READY TO COMMAND 🚀
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WIN / LOSS MODAL -->
+    <div id="modalOverlay" class="{% if state.status == 'ACTIVE' %}hidden{% endif %} fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50 font-mono">
+        <div id="modalCard" class="max-w-lg w-full bg-slate-900 border-2 {% if all_missions_completed %}border-amber-400 shadow-[0_0_40px_rgba(245,158,11,0.4)]{% elif state.status == 'WON' %}border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]{% else %}border-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.3)]{% endif %} rounded-2xl p-6 text-center shadow-2xl relative overflow-hidden">
+            {% if state.status == "WON" %}
+                {% if all_missions_completed %}
+                    <!-- GRAND MARS FLEET ADMIRAL SUPREME UNLOCK -->
+                    <div class="text-5xl mb-2 animate-bounce">🏆</div>
+                    <div class="inline-block px-3 py-1 rounded-full text-[10px] font-black orbitron uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-400 mb-2">
+                        ALL 4 MARTIAN SECTORS CONQUERED!
+                    </div>
+                    <h2 class="text-xl md:text-2xl font-black orbitron text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-cyan-300">
+                        GRAND MARS FLEET ADMIRAL
+                    </h2>
+                    <p class="text-xs text-amber-200 font-bold mt-1">APEX NASA SURVIVOR & SUPREME PLANETARY COMMANDER</p>
+                    <p class="text-xs text-slate-300 mt-2">
+                        Cadet <strong class="text-amber-300">{{ cadet_name }}</strong> ({{ cadet_age_bracket }}), you have mastered Touchdown, Red Dust, Solar Storm, and the Apocalypse Protocol!
+                    </p>
+
+                    <!-- Unlocked Supreme Badge Pill -->
+                    <div class="my-3 p-3 bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-cyan-500/10 rounded-xl border border-amber-400/60">
+                        <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">SUPREME UNLOCKED CREDENTIAL:</div>
+                        <div class="text-sm font-black text-amber-300 orbitron animate-pulse">
+                            🌟 SUPREME PLANETARY COMMANDER BADGE
+                        </div>
+                    </div>
+
+                    <div class="my-3 p-2.5 bg-slate-950 rounded border border-slate-800 text-xs text-cyan-300 flex justify-around">
+                        <span>SCORE: <strong>{{ state.xp }} XP</strong></span>
+                        <span>CLUTCH: <strong>{{ state.clutch_count }}</strong></span>
+                        <span>CRISES: <strong>{{ state.crises_handled }}</strong></span>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-2 justify-center mt-4">
+                        <a href="{% url 'certificate' %}" class="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs orbitron shadow-lg shadow-amber-500/30 flex items-center justify-center gap-1.5 hover:brightness-110 active:scale-95 transition">
+                            <span>🖨️</span> CLAIM OFFICIAL NASA CERTIFICATE
+                        </a>
+                        <form method="POST" action="{% url 'dashboard' %}" class="inline-block">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="restart">
+                            <input type="hidden" name="level" value="{{ state.level }}">
+                            <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold px-4 py-2.5 rounded-xl text-xs border border-slate-700 cursor-pointer">
+                                🔄 REPLAY MISSION
+                            </button>
+                        </form>
+                    </div>
+
+                {% else %}
+                    <!-- STANDARD LEVEL VICTORY -->
+                    <div class="text-4xl mb-2">🎉</div>
+                    <h2 class="text-xl font-bold orbitron text-emerald-400">MISSION ACCOMPLISHED!</h2>
+                    <p class="text-xs text-slate-300 mt-2">
+                        Cadet <strong class="text-cyan-300">{{ cadet_name }}</strong>, you conquered all {{ state.target_sols }} Sols of {{ state.level_name|upper }}!
+                    </p>
+                    
+                    <div class="my-3 p-2.5 bg-cyan-950/60 border border-cyan-500/50 rounded-xl text-xs text-cyan-300">
+                        <div class="text-[10px] text-slate-400 uppercase font-mono">SECTOR BADGE AWARDED:</div>
+                        <div class="text-sm font-black text-amber-300 font-mono mt-0.5">
+                            {% if state.level == 1 %}🪐 Touchdown Pioneer
+                            {% elif state.level == 2 %}🌪️ Dust Storm Navigator
+                            {% elif state.level == 3 %}☀️ Solar Shield Tactician
+                            {% elif state.level == 4 %}🚀 Colony Life-Support Architect
+                            {% endif %}
+                        </div>
+                        <div class="text-[11px] text-emerald-300 mt-0.5">Rank: <strong>{{ rank }}</strong></div>
+                    </div>
+
+                    <div class="my-2 p-2 bg-slate-950 rounded border border-slate-800 text-xs text-cyan-300">
+                        SCORE: {{ state.xp }} XP | SOLS SURVIVED: {{ state.target_sols }}
+                    </div>
+
+                    <div class="flex gap-2 justify-center mt-4">
+                        {% if state.level < 4 %}
+                        <form method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="next_level">
+                            <button type="submit" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded text-xs">
+                                ADVANCE TO TIER {{ state.level|add:1 }} →
+                            </button>
+                        </form>
+                        {% endif %}
+                        <a href="{% url 'certificate' %}" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2 rounded text-xs flex items-center gap-1">
+                            <span>📜</span> VIEW CERTIFICATE
+                        </a>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="text-4xl mb-2">💥</div>
+                <h2 class="text-xl font-bold orbitron text-rose-500">HABITAT FAILURE // SOL <span id="modalFailSol">{{ state.sol }}</span></h2>
+                <p id="modalFailReason" class="text-xs text-rose-300 mt-2">{{ state.fail_reason|default:"Life-support telemetry breach." }}</p>
+                <div class="mt-4 flex gap-2 justify-center">
+                    <form method="POST" action="{% url 'dashboard' %}" class="inline-block">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="restart">
+                        <input type="hidden" name="level" value="{{ state.level }}">
+                        <button type="submit" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs orbitron tracking-wider shadow-lg shadow-rose-600/40 transition hover:brightness-110 active:scale-95 cursor-pointer flex items-center gap-1.5">
+                            <span>🔄</span> REBOOT MISSION CONTROL
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APP ENGINE -->
+    <script>
+        let currentAdvisorAction = '{{ advisor.rec_action }}';
+        let currentInspectedModule = 'solar_arrays';
+        let forecastChartInstance = null;
+        let isAudioMuted = false;
+        let isVoiceMuted = false;
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // ==========================================
+        // NASA MISSION CONTROL AUDIO SFX ENGINE
+        // ==========================================
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) audioCtx = new AudioContextClass();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // Initialize audio context on first user click/touch
+        ['click', 'keydown', 'touchstart'].forEach(evt => {
+            document.addEventListener(evt, () => {
+                getAudioContext();
+            }, { once: true });
+        });
+
+        function playQuindarBeep() {
+            if (isAudioMuted) return;
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(2525, ctx.currentTime);
+                gain.gain.setValueAtTime(0.09, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.12);
+            } catch(e) {}
+        }
+
+        // Crisis Klaxon Alarm (Apollo Master Alarm Siren)
+        function playCrisisAlarm() {
+            if (isAudioMuted) return;
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sawtooth';
+                // Oscillating siren frequency (850Hz <-> 550Hz warble)
+                osc.frequency.setValueAtTime(850, now);
+                osc.frequency.setValueAtTime(550, now + 0.15);
+                osc.frequency.setValueAtTime(850, now + 0.30);
+                osc.frequency.setValueAtTime(550, now + 0.45);
+                osc.frequency.setValueAtTime(850, now + 0.60);
+                osc.frequency.setValueAtTime(450, now + 0.75);
+
+                gain.gain.setValueAtTime(0.22, now);
+                gain.gain.setValueAtTime(0.22, now + 0.75);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.95);
+            } catch(e) {
+                console.error("Crisis alarm audio error:", e);
+            }
+        }
+
+        // Warning Chirp for Danger Threshold (<25% or Pipe Freeze Countdown)
+        function playWarningChirp() {
+            if (isAudioMuted) return;
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(650, now);
+                osc.frequency.setValueAtTime(950, now + 0.08);
+                gain.gain.setValueAtTime(0.14, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.22);
+            } catch(e) {}
+        }
+
+        // Clutch Survival Victory Sound
+        function playClutchBonusSound() {
+            if (isAudioMuted) return;
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const notes = [440, 554.37, 659.25, 880]; // A4, C#5, E5, A5
+                notes.forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.18, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.28);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.28);
+                });
+            } catch(e) {}
+        }
+
+        function toggleAudio() {
+            isAudioMuted = !isAudioMuted;
+            document.getElementById('audioIcon').innerText = isAudioMuted ? '🔇' : '🔊';
+            if (!isAudioMuted) {
+                playQuindarBeep();
+            }
+        }
+
+        function toggleVoice() {
+            isVoiceMuted = !isVoiceMuted;
+            document.getElementById('voiceIcon').innerText = isVoiceMuted ? '🔇' : '🎙️';
+            if (!isVoiceMuted) {
+                speakComms("Mission Control audio comms link active.");
+            }
+        }
+
+        function speakComms(text) {
+            if (isVoiceMuted || !window.speechSynthesis) return;
+            try {
+                window.speechSynthesis.cancel(); // Clear any ongoing queue
+                const u = new SpeechSynthesisUtterance(text);
+                u.rate = 1.05;
+                u.pitch = 0.95;
+                window.speechSynthesis.speak(u);
+            } catch(e) {}
+        }
+
+        // Tab Switcher
+        function switchTab(tabId) {
+            playQuindarBeep();
+            const tabs = ['habitat', 'digital_twin', 'ai_commander', 'nasa_data', 'crisis_center', 'forecast', 'curriculum', 'replay'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tabContent_${t}`);
+                const btn = document.getElementById(`tabBtn_${t}`);
+                if (el) el.classList.toggle('hidden', t !== tabId);
+                if (btn) {
+                    if (t === tabId) {
+                        btn.className = 'px-3 py-1.5 rounded-lg transition border border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md flex items-center gap-1.5';
+                    } else {
+                        btn.className = 'px-3 py-1.5 rounded-lg transition border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 flex items-center gap-1.5';
+                    }
+                }
+            });
+
+            if (tabId === 'forecast') {
+                renderForecastChart({{ forecast_data|safe }});
+            }
+        }
+
+        function executeHoustonRecommendation() {
+            playQuindarBeep();
+            if (currentAdvisorAction) selectAction(currentAdvisorAction);
+        }
+
+        async function selectAction(actionName, levelTarget) {
+            playQuindarBeep();
+            const payload = { action: actionName };
+            if (levelTarget !== undefined) payload.level = levelTarget;
+
+            if (actionName === 'restart') {
+                const overlay = document.getElementById('modalOverlay');
+                if (overlay) overlay.classList.add('hidden');
+            }
+
+            try {
+                const response = await fetch('/api/action/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    if (actionName === 'restart') {
+                        window.location.reload();
+                        return;
+                    }
+                    updateUI(data);
+                } else if (data.error) {
+                    alert(data.error);
+                }
+            } catch(err) {
+                console.error("Action API error:", err);
+                if (actionName === 'restart') {
+                    window.location.reload();
+                }
+            }
+        }
+
+        function updateUI(data) {
+            const s = data.state;
+            const t = data.telemetry;
+            const adv = data.advisor;
+
+            document.getElementById('hudSol').textContent = s.sol;
+            document.getElementById('hudLevelName').textContent = s.level_name.toUpperCase();
+            document.getElementById('hudRank').textContent = data.rank.toUpperCase();
+            document.getElementById('hudXP').textContent = s.xp;
+
+            // Meters
+            updateGauge('meterPowerBar', 'meterPowerText', s.power);
+            updateGauge('meterOxygenBar', 'meterOxygenText', s.oxygen);
+            updateGauge('meterFoodBar', 'meterFoodText', s.food);
+            updateGauge('meterWaterBar', 'meterWaterText', s.water || 100);
+            updateGauge('meterShieldBar', 'meterShieldText', s.shielding);
+            updateGauge('meterIntegrityBar', 'meterIntegrityText', s.integrity || 100);
+
+            // Bus gauges
+            const vp = document.getElementById('vertPowerBar'); if (vp) vp.style.height = `${s.power}%`;
+            const vo = document.getElementById('vertOxygenBar'); if (vo) vo.style.height = `${s.oxygen}%`;
+            const vf = document.getElementById('vertFoodBar'); if (vf) vf.style.height = `${s.food}%`;
+            document.getElementById('vertPowerVal').textContent = `${s.power}%`;
+            document.getElementById('vertOxygenVal').textContent = `${s.oxygen}%`;
+            document.getElementById('vertFoodVal').textContent = `${s.food}%`;
+
+            // SVG Texts
+            const svgP = document.getElementById('svgTextPower'); if (svgP) svgP.textContent = `${s.power}%`;
+            const svgO = document.getElementById('svgTextOxygen'); if (svgO) svgO.textContent = `${s.oxygen}%`;
+            const svgF = document.getElementById('svgTextFood'); if (svgF) svgF.textContent = `${s.food}%`;
+            const svgW = document.getElementById('svgTextWater'); if (svgW) svgW.textContent = `${s.water || 100}%`;
+            const svgS = document.getElementById('svgTextShield'); if (svgS) svgS.textContent = `${s.shielding}%`;
+            const svgI = document.getElementById('svgTextIntegrity'); if (svgI) svgI.textContent = `${s.integrity || 100}%`;
+
+            // Houston Advisor
+            if (adv) {
+                currentAdvisorAction = adv.rec_action;
+                document.getElementById('advisorTitle').textContent = adv.title;
+                document.getElementById('advisorMessage').textContent = adv.message;
+                document.getElementById('advisorRecBadge').textContent = adv.rec_action.toUpperCase();
+            }
+
+            // Terminal
+            const logBox = document.getElementById('terminalLogContainer');
+            if (logBox && s.log) {
+                logBox.innerHTML = '';
+                s.log.slice(-7).forEach(entry => {
+                    const p = document.createElement('p');
+                    let borderCls = 'border-emerald-600 pl-2';
+                    if (entry.includes('CRISIS') || entry.includes('FAILURE') || entry.includes('WARNING')) {
+                        borderCls = 'border-rose-500 text-rose-300 bg-rose-950/30';
+                    } else if (entry.includes('CLUTCH') || entry.includes('ACCOMPLISHED')) {
+                        borderCls = 'border-amber-400 text-amber-200 bg-amber-950/30';
+                    }
+                    p.className = `leading-relaxed border-l-2 ${borderCls} pl-2 py-0.5 rounded-r`;
+                    p.innerText = `> ${entry}`;
+                    logBox.appendChild(p);
+                });
+                logBox.scrollTop = logBox.scrollHeight;
+            }
+
+            // Rovers
+            if (data.rovers) {
+                for (let rk in data.rovers) {
+                    const r = data.rovers[rk];
+                    const qBtn = document.getElementById(`quick_deploy_${rk}`);
+                    const qStatus = document.getElementById(`quickStatus_${rk}`);
+                    if (qBtn) qBtn.disabled = r.status !== 'READY';
+                    if (qStatus) {
+                        qStatus.textContent = r.status === 'READY' ? (rk === 'perseverance' ? '+18% POWER RESTORE' : (rk === 'ingenuity' ? 'WEATHER RECON' : '+15% FOOD / +20% H2O')) : `COOLDOWN (${r.cooldown} Sols)`;
+                    }
+                }
+            }
+
+            // Dynamically update badges if present
+            if (data.earned_badges) {
+                const bList = document.getElementById('badgesPillList');
+                if (bList) {
+                    bList.innerHTML = '';
+                    data.earned_badges.forEach(b => {
+                        const pill = document.createElement('span');
+                        if (b.includes('SUPREME')) {
+                            pill.className = "px-3 py-1 rounded-full text-xs font-black font-mono bg-gradient-to-r from-amber-400/30 via-yellow-400/40 to-cyan-400/30 text-yellow-300 border-2 border-amber-400 shadow-[0_0_18px_rgba(251,191,36,0.6)] animate-pulse flex items-center gap-1.5";
+                        } else {
+                            pill.className = "px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-cyan-950/90 text-cyan-300 border border-cyan-400/70 shadow-[0_0_10px_rgba(6,182,212,0.4)] flex items-center gap-1";
+                        }
+                        pill.textContent = b;
+                        bList.appendChild(pill);
+                    });
+                }
+                const cCount = document.getElementById('clearedCount');
+                if (cCount && data.completed_missions) {
+                    cCount.textContent = data.completed_missions.length;
+                }
+            }
+
+            // --- CRISIS AUDIO ALARMS & VOICE COMM ALERT ---
+            const minResource = Math.min(s.power, s.oxygen, s.food, s.shielding, s.water || 100, s.integrity || 100);
+            if (s.status === 'WON') {
+                playClutchBonusSound();
+                if (data.announcement) {
+                    speakComms(data.announcement);
+                } else if (data.all_missions_completed) {
+                    speakComms("Congratulations Cadet. All four Martian sectors secured. Grand Mars Fleet Admiral rank and Supreme Planetary Commander badge unlocked.");
+                } else {
+                    speakComms("Mission accomplished! Martian sector secured.");
+                }
+            } else if (s.latest_crisis) {
+                // Master Alarm for active planetary emergency
+                playCrisisAlarm();
+                document.body.classList.add('shake');
+                setTimeout(() => document.body.classList.remove('shake'), 450);
+                speakComms(`Red alert: ${s.latest_crisis.replace(/[-_:]/g, ' ')}`);
+            } else if (s.temp_warning && s.cascade_counter <= 1) {
+                // Imminent pipe freeze warning
+                playCrisisAlarm();
+                speakComms("Emergency: Heaters offline too long. Greenhouse pipe freeze imminent.");
+            } else if (s.badge && (s.badge.includes('CLUTCH') || s.badge.includes('SURVIVOR'))) {
+                playClutchBonusSound();
+                speakComms("Clutch survival bonus earned!");
+            } else if (minResource <= 20) {
+                playWarningChirp();
+                speakComms("Warning: Subsystem telemetry dropped below critical threshold.");
+            }
+
+            if (s.status !== 'ACTIVE') {
+                document.getElementById('modalOverlay').classList.remove('hidden');
+                if (s.status === 'LOST') {
+                    const failReasonEl = document.getElementById('modalFailReason');
+                    const failSolEl = document.getElementById('modalFailSol');
+                    if (failReasonEl) failReasonEl.textContent = s.fail_reason || 'Critical Life Support threshold breach.';
+                    if (failSolEl) failSolEl.textContent = s.sol;
+                }
+            } else {
+                document.getElementById('modalOverlay').classList.add('hidden');
+            }
+        }
+
+        function updateGauge(barId, textId, val) {
+            const bar = document.getElementById(barId);
+            const text = document.getElementById(textId);
+            if (bar) bar.style.width = `${val}%`;
+            if (text) {
+                text.textContent = `${val}%`;
+                text.className = `font-bold font-mono text-sm ${val <= 20 ? 'text-rose-400' : (val <= 50 ? 'text-amber-400' : 'text-emerald-400')}`;
+            }
+        }
+
+        async function executeCliCommand(e) {
+            e.preventDefault();
+            const input = document.getElementById('cliInput');
+            const cmd = input.value.trim();
+            if (!cmd) return;
+            input.value = '';
+            playQuindarBeep();
+
+            try {
+                const res = await fetch('/api/cli/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ command: cmd })
+                });
+                const d = await res.json();
+                if (d.response) {
+                    const logBox = document.getElementById('terminalLogContainer');
+                    const p = document.createElement('p');
+                    p.className = 'leading-relaxed border-l-2 border-emerald-500 pl-2 py-0.5 rounded-r text-emerald-300';
+                    p.innerText = `> ${d.response}`;
+                    logBox.appendChild(p);
+                    logBox.scrollTop = logBox.scrollHeight;
+                }
+                if (d.state) updateUI(d);
+            } catch(e) {}
+        }
+
+        // AI Chat
+        async function submitAiChat(e) {
+            e.preventDefault();
+            const input = document.getElementById('aiChatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = '';
+            playQuindarBeep();
+
+            const box = document.getElementById('aiChatBox');
+            const userP = document.createElement('div');
+            userP.className = 'p-2 rounded bg-cyan-950/50 border border-cyan-800 text-cyan-200 text-right';
+            userP.innerText = `Commander: ${msg}`;
+            box.appendChild(userP);
+
+            try {
+                const res = await fetch('/api/ai_chat/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ message: msg })
+                });
+                const d = await res.json();
+                const aiP = document.createElement('div');
+                aiP.className = 'p-2.5 rounded bg-slate-900 border border-slate-800 text-slate-300';
+                aiP.innerText = d.reply;
+                box.appendChild(aiP);
+                box.scrollTop = box.scrollHeight;
+                speakComms(d.reply.slice(0, 120));
+            } catch(err) {}
+        }
+
+        // Forecast Chart Render
+        function renderForecastChart(forecastData) {
+            const ctx = document.getElementById('forecastChart');
+            if (!ctx) return;
+            if (forecastChartInstance) forecastChartInstance.destroy();
+
+            forecastChartInstance = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: forecastData.labels,
+                    datasets: forecastData.datasets.map(d => ({
+                        ...d,
+                        borderWidth: 2.5,
+                        tension: 0.25,
+                        fill: false
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#94a3b8' } }
+                    },
+                    plugins: { legend: { labels: { color: '#e2e8f0', font: { family: 'Share Tech Mono' } } } }
+                }
+            });
+        }
+
+        async function previewForecastAction(act) {
+            playQuindarBeep();
+            try {
+                const res = await fetch(`/api/forecast/?action=${act}`);
+                const data = await res.json();
+                renderForecastChart(data);
+                document.getElementById('forecastSummary').textContent = data.summary;
+            } catch(e) {}
+        }
+
+        // NASA Data Mode
+        async function toggleNasaDataMode(mode) {
+            playQuindarBeep();
+            document.getElementById('btnNasaMode_real').className = mode === 'real' ? 'px-3 py-1 text-xs rounded font-bold bg-emerald-500 text-slate-950 shadow' : 'px-3 py-1 text-xs rounded font-bold bg-slate-900 text-slate-400 hover:text-white';
+            document.getElementById('btnNasaMode_simulated').className = mode === 'simulated' ? 'px-3 py-1 text-xs rounded font-bold bg-cyan-500 text-slate-950 shadow' : 'px-3 py-1 text-xs rounded font-bold bg-slate-900 text-slate-400 hover:text-white';
+
+            try {
+                const res = await fetch(`/api/nasa_data/?mode=${mode}`);
+                const d = await res.json();
+                if (d.weather) {
+                    document.getElementById('badgeWeatherStatus').textContent = d.weather.data_status || 'OBSERVED';
+                    document.getElementById('dataNasaPressure').textContent = `${d.weather.pressure_pa} Pa`;
+                    document.getElementById('dataNasaTau').textContent = `${d.weather.tau_opacity}`;
+                }
+                if (d.space_weather) {
+                    document.getElementById('badgeSpaceWeatherStatus').textContent = d.space_weather.data_status || 'DERIVED';
+                    document.getElementById('dataDonkiEvent').textContent = d.space_weather.type;
+                    document.getElementById('dataDonkiDose').textContent = `${d.space_weather.estimated_rad_dose_msv} mSv`;
+                }
+            } catch(e) {}
+        }
+
+        // Quizzes
+        async function submitQuiz(topicId, optIdx) {
+            playQuindarBeep();
+            try {
+                const res = await fetch('/api/submit_quiz/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ topic_id: topicId, selected_index: optIdx })
+                });
+                const d = await res.json();
+                const resBox = document.getElementById(`quizResult_${topicId}`);
+                resBox.classList.remove('hidden');
+                if (d.is_correct) {
+                    resBox.className = 'text-xs p-2 rounded mt-2 bg-emerald-950 border border-emerald-600 text-emerald-300';
+                    resBox.innerHTML = `✅ <strong>CORRECT! (+100 XP)</strong><br>${d.explanation}`;
+                    if (d.total_xp) document.getElementById('hudXP').textContent = d.total_xp;
+                } else {
+                    resBox.className = 'text-xs p-2 rounded mt-2 bg-rose-950 border border-rose-600 text-rose-300';
+                    resBox.innerHTML = `❌ ${d.explanation}`;
+                }
+            } catch(e) {}
+        }
+
+        // Module Inspection
+        function openModuleDetailModal(modId) {
+            playQuindarBeep();
+            currentInspectedModule = modId;
+            const names = {
+                'solar_arrays': 'Solar Arrays & RTG Grid',
+                'central_hab': 'Central Habitat Dome',
+                'moxie': 'NASA MOXIE Oxygen Plant',
+                'hydroponics': 'Hydroponics Greenhouse',
+                'water_recycler': 'Closed-Loop Water Recycler',
+                'thermal_radiator': 'Thermal Radiator Loops',
+                'radiation_shield': 'Active Magnetic Deflector'
+            };
+            const descs = {
+                'solar_arrays': 'Dual sun-tracking photovoltaic wings and radioisotope thermoelectric generator supplying electrical baseline.',
+                'central_hab': 'Whipple-shielded environmental dome housing crew avionics, pressure bulkheads, and airlock seals.',
+                'moxie': 'Solid Oxide Electrolysis cells extracting pure oxygen from 95% CO2 Martian atmosphere at 800°C.',
+                'hydroponics': 'Vertical bio-chambers cultivating caloric food and transpiring purified moisture.',
+                'water_recycler': 'Catalytic oxidation and vapor compression distillation recycling greywater and condensate.',
+                'thermal_radiator': 'Fluid heat exchangers dissipating heat during daytime and warming pipes during -65°C nocturnal freezes.',
+                'radiation_shield': 'Superconducting coils producing an artificial magnetic field to deflect Solar Energetic Particles and GCR.'
+            };
+            document.getElementById('modalModTitle').innerText = names[modId] || 'SUBSYSTEM';
+            document.getElementById('modalModDesc').innerText = descs[modId] || '';
+            document.getElementById('moduleModal').classList.remove('hidden');
+        }
+
+        function closeModuleModal() { document.getElementById('moduleModal').classList.add('hidden'); }
+        function repairInspectedModule() {
+            closeModuleModal();
+            selectAction(`repair_module_${currentInspectedModule}`);
+        }
+
+        function openTutorialModal() { playQuindarBeep(); document.getElementById('tutorialModal').classList.remove('hidden'); }
+        function closeTutorialModal() { document.getElementById('tutorialModal').classList.add('hidden'); }
+        function selectLevel(lvl) { selectAction('restart', lvl); }
+
+        function changeRole(newRole) {
+            playQuindarBeep();
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `<input type="hidden" name="csrfmiddlewaretoken" value="${getCookie('csrftoken')}"><input type="hidden" name="role" value="${newRole}">`;
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // --- KID-FRIENDLY SUBTITLES TOGGLE ---
+        let kidSubtitlesActive = {% if show_subtitles %}true{% else %}false{% endif %};
+        function toggleKidSubtitles() {
+            kidSubtitlesActive = !kidSubtitlesActive;
+            const btn = document.getElementById('kidSubtitleBtn');
+            const label = document.getElementById('subLabel');
+            if (label) label.textContent = kidSubtitlesActive ? 'ON' : 'OFF';
+            if (btn) {
+                if (kidSubtitlesActive) {
+                    btn.className = 'px-2.5 py-1 rounded text-xs font-bold border transition bg-emerald-500/20 text-emerald-300 border-emerald-500/50';
+                } else {
+                    btn.className = 'px-2.5 py-1 rounded text-xs font-bold border transition bg-slate-900 text-slate-400 border-slate-700';
+                }
+            }
+            document.querySelectorAll('.kid-sub').forEach(el => {
+                if (kidSubtitlesActive) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+        }
+
+        // --- PWA INSTALL PROMPT & SERVICE WORKER ---
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btn = document.getElementById('pwaInstallBtn');
+            if (btn) btn.classList.remove('hidden');
+        });
+
+        async function installPWA() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            const btn = document.getElementById('pwaInstallBtn');
+            if (btn) btn.classList.add('hidden');
+        }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+    </script>
+</body>
+</html>

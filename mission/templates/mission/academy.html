@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NASA Space Academy | Sol Survivor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #050816;
+            color: #E6EDF3;
+            font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+        }
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        .rajdhani { font-family: 'Rajdhani', sans-serif; }
+        .glass-card {
+            background: rgba(13, 17, 23, 0.82);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
+            border-color: rgba(56, 189, 248, 0.6);
+            transform: translateY(-2px);
+        }
+        .scanline {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.22) 50%);
+            background-size: 100% 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen relative p-3 md:p-6 scanline flex flex-col justify-between">
+
+    <!-- LAYERED COSMIC BACKGROUND -->
+    {% include 'mission/space_background.html' %}
+
+    <div class="max-w-7xl mx-auto w-full relative z-10 flex-grow">
+
+        <!-- TOP ACADEMY HEADER -->
+        <header class="flex flex-wrap justify-between items-center border-b border-slate-800 pb-4 mb-6 gap-4">
+            <div class="flex items-center gap-3">
+                <a href="{% url 'dashboard' %}" class="h-10 w-10 rounded-xl bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center text-xl hover:bg-cyan-500/20 transition" title="Return to Sol Survivor Mission Control">
+                    🪐
+                </a>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                        <h1 class="text-xl md:text-2xl font-black orbitron tracking-wider text-cyan-400 flex items-center gap-2">
+                            SOL SURVIVOR <span class="text-slate-500">//</span> <span class="text-white">SPACE ACADEMY</span>
+                        </h1>
+                    </div>
+                    <p class="text-slate-400 text-xs mt-0.5 font-mono">
+                        NASA Educational Space Flight & Planetary Science Simulator (Ages 8–16)
+                    </p>
+                </div>
+            </div>
+
+            <!-- PLAYER STATS & NAVIGATION CONTROLS -->
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <!-- RETURN TO MISSION CONTROL BUTTON -->
+                <a href="{% url 'dashboard' %}" class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/50 text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-red-950/50">
+                    <span>🪐</span> MARS SURVIVAL
+                </a>
+
+                <!-- LOGOUT / SWITCH CADET BUTTON -->
+                <a href="{% url 'logout' %}" class="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-500/60 text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-rose-950/40" title="Log Out & Switch Cadet">
+                    <span>🚪</span> LOGOUT
+                </a>
+
+                <!-- AGE GROUP SELECTOR -->
+                <button onclick="openAgeModal()" class="px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/50 text-xs font-bold transition flex items-center gap-1.5">
+                    <span>🎓</span> <span id="currentAgeLabel">{{ profile.get_age_group_display|default:"Ages 11-13" }}</span>
+                </button>
+
+                <!-- MOTION ACCESSIBILITY TOGGLE -->
+                <button onclick="toggleReducedMotion()" id="motionToggleBtn" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-cyan-400 text-xs border border-slate-700 transition" title="Toggle Starfield Motion">
+                    ✨ MOTION: ON
+                </button>
+
+                <!-- ACADEMY XP BADGE -->
+                <div class="bg-slate-950 border border-amber-500/60 px-3.5 py-1 rounded-lg text-center shadow-lg shadow-amber-500/10">
+                    <div class="text-[9px] text-amber-400 tracking-widest uppercase font-bold">ACADEMY XP</div>
+                    <div class="text-sm md:text-base font-black orbitron text-amber-300 flex items-center justify-center gap-1">
+                        ⚡ <span id="academyXpVal">{{ profile.total_academy_xp|default:0 }}</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- GLOWING MISSION BADGES RIBBON IN ACADEMY -->
+        <div class="glass-card rounded-xl p-2.5 mb-6 flex flex-wrap items-center justify-between gap-2 border border-cyan-500/30 bg-slate-950/80">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs uppercase font-bold text-slate-300 font-mono flex items-center gap-1.5">
+                    <span>🎖️</span> CADET <strong class="text-amber-300">{{ cadet_name }}</strong> // EARNED BADGES:
+                </span>
+                <div class="flex flex-wrap items-center gap-2">
+                    {% for b in earned_badges %}
+                        {% if b == '🌟 SUPREME PLANETARY COMMANDER BADGE' %}
+                        <span class="px-3 py-1 rounded-full text-xs font-black font-mono bg-gradient-to-r from-amber-400/30 via-yellow-400/40 to-cyan-400/30 text-yellow-300 border-2 border-amber-400 shadow-[0_0_18px_rgba(251,191,36,0.6)] animate-pulse flex items-center gap-1.5">
+                            {{ b }}
+                        </span>
+                        {% else %}
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-cyan-950/90 text-cyan-300 border border-cyan-400/70 shadow-[0_0_10px_rgba(6,182,212,0.4)] flex items-center gap-1">
+                            {{ b }}
+                        </span>
+                        {% endif %}
+                    {% empty %}
+                        <span class="text-xs text-slate-500 font-mono italic">
+                            Clear Martian survival missions (Level 1–4) to unlock official badges & ranks here!
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-[11px] font-mono text-slate-400">RANK: <strong class="text-emerald-400 font-bold">{{ cadet_rank }}</strong></span>
+                <a href="{% url 'certificate' %}" class="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/60 text-xs font-bold transition flex items-center gap-1">
+                    <span>📜</span> Certificate
+                </a>
+            </div>
+        </div>
+
+        <!-- HERO BANNER & PROGRESS DASHBOARD -->
+        <section class="glass-card rounded-2xl p-4 md:p-6 mb-8 border border-cyan-500/30 relative overflow-hidden">
+            <div class="absolute -right-16 -top-16 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+                <div class="lg:col-span-2">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-xs font-bold mb-3">
+                        🚀 JUNIOR SPACE EXPLORER INITIATIVE
+                    </div>
+                    <h2 class="text-2xl md:text-3xl font-black orbitron text-white tracking-wide mb-2">
+                        EXPLORE THE UNIVERSE & MASTER SPACE SCIENCE
+                    </h2>
+                    <p class="text-slate-300 text-sm leading-relaxed mb-4 max-w-2xl font-mono">
+                        Welcome, Explorer! Space Academy features eight authentic, playable educational flight simulators.
+                        Design rockets, command Mars rovers, deflect asteroids, navigate microgravity spacewalks, and earn NASA Junior Space Explorer achievements!
+                    </p>
+
+                    <!-- PROGRESS METER -->
+                    <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 max-w-xl">
+                        <div class="flex justify-between items-center text-xs mb-1.5">
+                            <span class="text-slate-300 font-bold flex items-center gap-1.5">
+                                <span>🏅</span> ACADEMY COMPLETION PROGRESS:
+                            </span>
+                            <span class="text-cyan-400 font-black font-mono" id="completionRateText">
+                                {{ profile.games_completed_count|default:0 }} of 8 Games ({{ completion_pct|default:0 }}%)
+                            </span>
+                        </div>
+                        <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                            <div class="bg-gradient-to-r from-cyan-500 via-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-700" style="width: {{ completion_pct|default:0 }}%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DAILY CHALLENGE CARD -->
+                <div class="bg-slate-950/90 rounded-xl p-4 border border-amber-500/40 shadow-xl shadow-amber-950/30 flex flex-col justify-between h-full">
+                    <div>
+                        <div class="flex items-center justify-between text-xs font-bold text-amber-400 mb-2">
+                            <span class="flex items-center gap-1.5"><span>⭐</span> DAILY FLIGHT CHALLENGE</span>
+                            <span class="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-[10px]">+150 XP</span>
+                        </div>
+                        <h3 class="text-sm font-bold text-white mb-1.5" id="dailyChallengeTitle">
+                            {{ daily_challenge.title|default:"Space Explorer Daily: Complete 2 Mini-Games" }}
+                        </h3>
+                        <p class="text-slate-400 text-xs leading-snug mb-3 font-mono">
+                            Play and clear today’s challenge to boost your Sol Survivor commander credentials and earn mastery badges.
+                        </p>
+                    </div>
+                    <div class="pt-2 border-t border-slate-800 flex justify-between items-center text-xs font-mono">
+                        <span class="text-slate-400">STATUS:</span>
+                        <span class="{% if daily_challenge.is_completed %}text-emerald-400 font-bold{% else %}text-amber-300 font-bold{% endif %}">
+                            {% if daily_challenge.is_completed %}COMPLETED ✅{% else %}IN PROGRESS ({{ daily_challenge.current_count|default:0 }}/{{ daily_challenge.target_count|default:2 }}){% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8 PLAYABLE MINI-GAMES GRID -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🕹️</span>
+                    <h3 class="text-lg md:text-xl font-bold orbitron text-white tracking-wider">
+                        EDUCATIONAL MINI-GAMES (8 MISSIONS)
+                    </h3>
+                </div>
+                <div class="text-xs text-slate-400 font-mono">
+                    Select any mission to begin interactive training
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {% for g in games %}
+                <div class="glass-card glow-hover rounded-xl p-4 flex flex-col justify-between border border-slate-800 transition duration-300 relative overflow-hidden group">
+                    <!-- Top Game Tag -->
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="h-12 w-12 rounded-xl bg-{{ g.color }}-500/10 border border-{{ g.color }}-500/30 flex items-center justify-center text-2xl group-hover:scale-110 transition duration-300">
+                                {{ g.icon }}
+                            </div>
+                            <div class="text-right">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 border border-slate-700 text-slate-300">
+                                    ⏱️ {{ g.time_est }}
+                                </span>
+                                <div class="text-[10px] text-slate-400 font-mono mt-1">
+                                    {{ g.difficulty_est }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 class="text-base font-bold orbitron text-white group-hover:text-cyan-300 transition mb-1">
+                            {{ g.title }}
+                        </h4>
+                        <div class="text-[11px] text-cyan-400 font-semibold mb-2">
+                            {{ g.subtitle }}
+                        </div>
+                        <p class="text-slate-400 text-xs font-mono leading-relaxed mb-4">
+                            {{ g.description|truncatewords:16 }}
+                        </p>
+                    </div>
+
+                    <!-- Bottom Status & Play Action -->
+                    <div>
+                        <div class="pt-3 border-t border-slate-800/80 mb-3 flex items-center justify-between text-[11px] font-mono">
+                            <span class="text-slate-500">BEST SCORE:</span>
+                            <span class="font-bold text-amber-300" id="highScore_{{ g.id }}">
+                                {% if g.high_score %}{{ g.high_score }} pts 🏅{% else %}--{% endif %}
+                            </span>
+                        </div>
+
+                        <a href="{% url 'academy_game' g.id %}" class="w-full py-2 px-3 rounded-lg bg-gradient-to-r from-{{ g.color }}-600/80 to-{{ g.color }}-500/90 hover:from-{{ g.color }}-500 hover:to-{{ g.color }}-400 text-slate-950 font-black text-xs text-center transition flex items-center justify-center gap-1.5 shadow-md shadow-{{ g.color }}-950/50">
+                            <span>LAUNCH MISSION</span> <span>▶</span>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ACHIEVEMENTS & BADGES SECTION -->
+        <section class="glass-card rounded-2xl p-5 mb-8 border border-indigo-500/30">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🏆</span>
+                    <h3 class="text-base md:text-lg font-bold orbitron text-white tracking-wider">
+                        ACADEMY ACHIEVEMENTS & NASA STEM BADGES
+                    </h3>
+                </div>
+                <span class="text-xs text-indigo-300 font-mono">
+                    {{ achievements_unlocked_count|default:0 }} of 9 Badges Earned
+                </span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3">
+                {% for ach in achievements_def %}
+                <div class="p-3 rounded-xl border text-center transition {% if ach.id in unlocked_ach_ids %}bg-indigo-950/40 border-indigo-500/60 shadow-lg shadow-indigo-950/50{% else %}bg-slate-950/60 border-slate-800/80 opacity-50 grayscale{% endif %}" title="{{ ach.desc }}">
+                    <div class="text-2xl mb-1">{{ ach.icon }}</div>
+                    <div class="text-[11px] font-bold text-white truncate">{{ ach.title }}</div>
+                    <div class="text-[9px] text-slate-400 mt-0.5">
+                        {% if ach.id in unlocked_ach_ids %}<span class="text-emerald-400 font-bold">UNLOCKED</span>{% else %}LOCKED 🔒{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- NASA EDUCATIONAL REFERENCE & CITATIONS -->
+        <footer class="border-t border-slate-800 pt-4 pb-8 text-center text-xs text-slate-500 font-mono">
+            <p class="mb-1">
+                Curriculum and scientific content inspired by <a href="https://spaceplace.nasa.gov/" target="_blank" class="text-cyan-400 hover:underline">NASA Space Place</a>, <a href="https://science.nasa.gov/solar-system/" target="_blank" class="text-cyan-400 hover:underline">NASA Solar System Exploration</a>, and the <a href="https://mars.nasa.gov/mars2020/" target="_blank" class="text-cyan-400 hover:underline">NASA Mars 2020 Perseverance Mission</a>.
+            </p>
+            <p class="text-[10px] text-slate-600">
+                Sol Survivor Space Academy is an educational STEM simulation for the 2026 NASA International Space Apps Challenge. Not an official NASA government certification.
+            </p>
+        </footer>
+
+    </div>
+
+    <!-- AGE SELECTION MODAL -->
+    <div id="ageModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-card rounded-2xl max-w-lg w-full p-6 border border-cyan-500/40 relative shadow-2xl">
+            <button onclick="closeAgeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
+
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-2xl">🎓</span>
+                <h3 class="text-xl font-bold orbitron text-white">SELECT YOUR LEARNING TIER</h3>
+            </div>
+            <p class="text-xs text-slate-300 font-mono mb-4 leading-relaxed">
+                Choose your age group so Space Academy can adapt game difficulty, vocabulary, scientific equations, and flight hints to your exact level.
+            </p>
+
+            <div class="space-y-3 mb-6">
+                <!-- Tier 1 -->
+                <button onclick="saveAgeGroup('8-10', 'easy')" class="w-full p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-950/30 hover:bg-emerald-900/40 transition text-left flex items-center justify-between group">
+                    <div>
+                        <div class="font-bold text-sm text-emerald-300 group-hover:text-emerald-200">JUNIOR CADET (Ages 8–10)</div>
+                        <div class="text-xs text-slate-400 mt-0.5">Visual guides, friendly tips, simplified orbital maneuvers, core planetary facts.</div>
+                    </div>
+                    <span class="text-xl">🌱</span>
+                </button>
+
+                <!-- Tier 2 -->
+                <button onclick="saveAgeGroup('11-13', 'medium')" class="w-full p-3.5 rounded-xl border border-cyan-500/40 bg-cyan-950/30 hover:bg-cyan-900/40 transition text-left flex items-center justify-between group">
+                    <div>
+                        <div class="font-bold text-sm text-cyan-300 group-hover:text-cyan-200">FLIGHT SPECIALIST (Ages 11–13)</div>
+                        <div class="text-xs text-slate-400 mt-0.5">Balanced physics, authentic astronomical units (AU), Thrust-to-Weight ratios, geology rock testing.</div>
+                    </div>
+                    <span class="text-xl">⚡</span>
+                </button>
+
+                <!-- Tier 3 -->
+                <button onclick="saveAgeGroup('14-16', 'hard')" class="w-full p-3.5 rounded-xl border border-purple-500/40 bg-purple-950/30 hover:bg-purple-900/40 transition text-left flex items-center justify-between group">
+                    <div>
+                        <div class="font-bold text-sm text-purple-300 group-hover:text-purple-200">MISSION COMMANDER (Ages 14–16)</div>
+                        <div class="text-xs text-slate-400 mt-0.5">Full orbital mechanics (Kepler/vis-viva), Tsiolkovsky delta-v calculations, closed-loop ECLSS troubleshooting.</div>
+                    </div>
+                    <span class="text-xl">🪐</span>
+                </button>
+            </div>
+
+            <div class="text-right">
+                <button onclick="closeAgeModal()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold font-mono">
+                    CLOSE
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT FOR AGE MODAL & INTERACTIONS -->
+    <script>
+    function openAgeModal() {
+        document.getElementById('ageModal').classList.remove('hidden');
+    }
+
+    function closeAgeModal() {
+        document.getElementById('ageModal').classList.add('hidden');
+    }
+
+    async function saveAgeGroup(ageGroup, difficulty) {
+        try {
+            const resp = await fetch('/api/academy/set_profile/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ age_group: ageGroup, difficulty: difficulty })
+            });
+            const data = await resp.json();
+            if (data.status === 'ok') {
+                document.getElementById('currentAgeLabel').textContent = data.age_label;
+                closeAgeModal();
+                // Brief toast
+                alert(`Learning tier updated to: ${data.age_label}! Mini-games adapted to this level.`);
+            }
+        } catch (e) {
+            console.error(e);
+            closeAgeModal();
+        }
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    </script>
+</body>
+</html>

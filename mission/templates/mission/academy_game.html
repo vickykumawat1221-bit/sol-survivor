@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ game.title }} | NASA Space Academy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@600;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #050816;
+            color: #E6EDF3;
+            font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        .rajdhani { font-family: 'Rajdhani', sans-serif; }
+        .glass-panel {
+            background: rgba(13, 17, 23, 0.85);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+        .scanline {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+        }
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen relative p-2 md:p-5 scanline flex flex-col justify-between">
+
+    <!-- LAYERED COSMIC BACKGROUND -->
+    {% include 'mission/space_background.html' %}
+
+    <div class="max-w-6xl mx-auto w-full relative z-10 flex-grow flex flex-col justify-between">
+
+        <!-- TOP GAMEPLAY HUD BAR -->
+        <header class="flex flex-wrap justify-between items-center border-b border-slate-800 pb-3 mb-4 gap-3">
+            <div class="flex items-center gap-3">
+                <a href="{% url 'academy' %}" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-700 text-xs font-bold transition flex items-center gap-1.5 shadow">
+                    <span>←</span> ACADEMY
+                </a>
+                <a href="{% url 'dashboard' %}" class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/40 text-xs font-bold transition flex items-center gap-1">
+                    <span>🪐</span> MARS SURVIVAL
+                </a>
+                <div>
+                    <h1 class="text-base md:text-xl font-bold orbitron text-white flex items-center gap-2">
+                        <span>{{ game.icon }}</span> {{ game.title }}
+                    </h1>
+                    <span class="text-[11px] text-cyan-400 font-mono">{{ game.subtitle }}</span>
+                </div>
+            </div>
+
+            <!-- LIVE TELEMETRY HUD METERS -->
+            <div class="flex items-center gap-3 flex-wrap">
+                <!-- AGE & DIFFICULTY BADGE -->
+                <div class="px-2.5 py-1 rounded-lg bg-indigo-950/80 border border-indigo-500/40 text-[11px] text-indigo-300 font-mono">
+                    TIER: <span class="font-bold text-white">{{ profile.age_group }}</span> ({{ profile.difficulty|upper }})
+                </div>
+
+                <!-- LIVE SCORE -->
+                <div class="px-3 py-1 rounded-lg bg-slate-950 border border-amber-500/60 text-center">
+                    <div class="text-[9px] text-amber-400 uppercase font-bold">SCORE</div>
+                    <div class="text-sm md:text-base font-black orbitron text-amber-300" id="hudScore">0</div>
+                </div>
+
+                <!-- TIMER / CHRONO -->
+                <div class="px-3 py-1 rounded-lg bg-slate-950 border border-cyan-500/60 text-center">
+                    <div class="text-[9px] text-cyan-400 uppercase font-bold">MISSION TIME</div>
+                    <div class="text-sm md:text-base font-black orbitron text-cyan-300" id="hudTimer">00:00</div>
+                </div>
+
+                <!-- AUDIO TOGGLE -->
+                <button onclick="toggleAudioSfx()" id="sfxBtn" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-700 transition" title="Toggle Sound FX">
+                    <span id="sfxIcon">🔊</span> SFX
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN INTERACTIVE THEATER CONTAINER -->
+        <main class="glass-panel rounded-2xl p-3 md:p-6 mb-4 flex-grow flex flex-col justify-center items-center relative overflow-hidden min-h-[500px]">
+
+            <!-- ============================================================== -->
+            <!-- STAGE 1: WELCOME & MISSION BRIEFING SCREEN -->
+            <!-- ============================================================== -->
+            <div id="briefingScreen" class="max-w-2xl w-full text-center py-6 px-4">
+                <div class="h-20 w-20 mx-auto mb-4 rounded-2xl bg-{{ game.color }}-500/10 border border-{{ game.color }}-500/40 flex items-center justify-center text-4xl shadow-xl shadow-{{ game.color }}-950/50 animate-pulse">
+                    {{ game.icon }}
+                </div>
+                <div class="inline-block px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-xs font-bold mb-3 font-mono">
+                    {{ game.stem_topic }}
+                </div>
+                <h2 class="text-2xl md:text-3xl font-black orbitron text-white mb-2">
+                    {{ game.title|upper }}
+                </h2>
+                <p class="text-slate-300 text-sm leading-relaxed mb-6 font-mono">
+                    {{ game.description }}
+                </p>
+
+                <!-- LEARNING OBJECTIVES BOX -->
+                <div class="bg-slate-950/90 rounded-xl p-4 mb-6 border border-slate-800 text-left">
+                    <div class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <span>🎯</span> NASA LEARNING OBJECTIVES:
+                    </div>
+                    <ul class="text-xs text-slate-300 space-y-1.5 font-mono">
+                        {% for obj in game.learning_objectives %}
+                        <li class="flex items-start gap-2">
+                            <span class="text-cyan-400">✓</span> <span>{{ obj }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <!-- CONTROLS & HOW TO PLAY -->
+                <div class="bg-slate-950/60 rounded-xl p-3 mb-6 border border-slate-800/80 text-xs text-slate-400 font-mono flex items-center justify-center gap-4 flex-wrap">
+                    <span class="flex items-center gap-1.5"><span class="text-white">⌨️</span> Keyboard (Arrows / WASD)</span>
+                    <span class="flex items-center gap-1.5"><span class="text-white">🖱️</span> Mouse Click / Drag</span>
+                    <span class="flex items-center gap-1.5"><span class="text-white">📱</span> Touch Supported</span>
+                </div>
+
+                <!-- START BUTTON -->
+                <button onclick="startMission()" class="px-8 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black orbitron text-sm md:text-base tracking-wider transition shadow-lg shadow-cyan-500/30 transform hover:-translate-y-0.5 active:translate-y-0">
+                    START MISSION 🚀
+                </button>
+            </div>
+
+            <!-- ============================================================== -->
+            <!-- STAGE 2: ACTIVE GAMEPLAY CONTAINER -->
+            <!-- ============================================================== -->
+            <div id="gameplayScreen" class="w-full h-full flex flex-col items-center justify-center hidden">
+                <!-- DYNAMIC MINI-GAME CANVAS OR INTERACTION WILL BE INJECTED HERE -->
+                <div id="gameplayViewport" class="w-full flex flex-col items-center justify-center relative"></div>
+            </div>
+
+            <!-- ============================================================== -->
+            <!-- STAGE 3: MISSION COMPLETE / DEBRIEF SCREEN -->
+            <!-- ============================================================== -->
+            <div id="debriefScreen" class="max-w-xl w-full text-center py-6 px-4 hidden">
+                <div class="text-5xl mb-3" id="debriefIcon">🏆</div>
+                <h2 class="text-2xl md:text-3xl font-black orbitron text-white mb-1" id="debriefHeading">
+                    MISSION ACCOMPLISHED!
+                </h2>
+                <div class="text-xs text-cyan-400 font-mono mb-4" id="debriefSub">
+                    Telemetry data successfully verified and recorded.
+                </div>
+
+                <!-- SCORE & REWARD SUMMARY -->
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <div class="bg-slate-950/90 rounded-xl p-3 border border-amber-500/40">
+                        <div class="text-[10px] text-slate-400 uppercase">FINAL SCORE</div>
+                        <div class="text-2xl font-black orbitron text-amber-300" id="debriefScore">0</div>
+                    </div>
+                    <div class="bg-slate-950/90 rounded-xl p-3 border border-cyan-500/40">
+                        <div class="text-[10px] text-slate-400 uppercase">ACADEMY XP EARNED</div>
+                        <div class="text-2xl font-black orbitron text-cyan-300" id="debriefXp">+0 XP</div>
+                    </div>
+                </div>
+
+                <!-- UNLOCKED BADGE BANNER -->
+                <div id="debriefBadgeBox" class="bg-indigo-950/60 border border-indigo-500/50 rounded-xl p-3 mb-6 hidden">
+                    <div class="text-xs font-bold text-indigo-300 mb-1 flex items-center justify-center gap-1.5">
+                        <span>🎖️</span> NEW NASA STEM BADGE UNLOCKED!
+                    </div>
+                    <div class="text-sm font-bold text-white orbitron" id="debriefBadgeName">
+                        Solar System Navigator
+                    </div>
+                </div>
+
+                <!-- SCIENTIFIC EXPLANATION & TAKEAWAY -->
+                <div class="bg-slate-950/90 rounded-xl p-4 mb-6 border border-slate-800 text-left">
+                    <div class="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                        <span>🔬</span> NASA SCIENTIFIC TAKEAWAY:
+                    </div>
+                    <p class="text-xs text-slate-300 font-mono leading-relaxed" id="debriefScienceText">
+                        Authentic space systems physics data from NASA mission archives.
+                    </p>
+                </div>
+
+                <!-- ACTION BUTTONS -->
+                <div class="flex items-center justify-center gap-4">
+                    <button onclick="restartMission()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs orbitron transition flex items-center gap-1.5">
+                        <span>🔄</span> PLAY AGAIN
+                    </button>
+                    <a href="{% url 'academy' %}" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs orbitron transition shadow-md shadow-cyan-500/30 flex items-center gap-1.5">
+                        <span>🏛️</span> RETURN TO ACADEMY
+                    </a>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- FOOTER WITH NASA ATTRIBUTION -->
+        <footer class="border-t border-slate-800/80 pt-2 pb-2 text-center text-[11px] text-slate-500 font-mono flex items-center justify-between flex-wrap gap-2">
+            <span>NASA Educational Reference: <a href="{{ game.nasa_url }}" target="_blank" class="text-cyan-400 hover:underline">{{ game.nasa_source }}</a></span>
+            <span class="text-slate-600">Sol Survivor Space Academy (Ages 8–16)</span>
+        </footer>
+
+    </div>
+
+    <!-- AUDIO SYNTHESIZER (Web Audio API, Pure JS, 0 External Files) -->
+    <script>
+    const SpaceAudio = (function() {
+        let ctx = null;
+        let enabled = true;
+
+        function getCtx() {
+            if (!ctx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) ctx = new AudioCtx();
+            }
+            if (ctx && ctx.state === 'suspended') {
+                ctx.resume();
+            }
+            return ctx;
+        }
+
+        return {
+            toggle: function() {
+                enabled = !enabled;
+                return enabled;
+            },
+            isEnabled: function() { return enabled; },
+            playChime: function() {
+                if (!enabled) return;
+                try {
+                    const c = getCtx();
+                    if (!c) return;
+                    const osc = c.createOscillator();
+                    const gain = c.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(587.33, c.currentTime); // D5
+                    osc.frequency.exponentialRampToValueAtTime(880, c.currentTime + 0.15); // A5
+                    gain.gain.setValueAtTime(0.12, c.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.3);
+                    osc.connect(gain);
+                    gain.connect(c.destination);
+                    osc.start();
+                    osc.stop(c.currentTime + 0.3);
+                } catch(e) {}
+            },
+            playThruster: function() {
+                if (!enabled) return;
+                try {
+                    const c = getCtx();
+                    if (!c) return;
+                    const osc = c.createOscillator();
+                    const gain = c.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(90, c.currentTime);
+                    osc.frequency.linearRampToValueAtTime(45, c.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.15, c.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, c.currentTime + 0.12);
+                    osc.connect(gain);
+                    gain.connect(c.destination);
+                    osc.start();
+                    osc.stop(c.currentTime + 0.12);
+                } catch(e) {}
+            },
+            playSuccess: function() {
+                if (!enabled) return;
+                try {
+                    const c = getCtx();
+                    if (!c) return;
+                    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                    notes.forEach((freq, idx) => {
+                        const osc = c.createOscillator();
+                        const gain = c.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, c.currentTime + idx * 0.08);
+                        gain.gain.setValueAtTime(0.15, c.currentTime + idx * 0.08);
+                        gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + idx * 0.08 + 0.25);
+                        osc.connect(gain);
+                        gain.connect(c.destination);
+                        osc.start(c.currentTime + idx * 0.08);
+                        osc.stop(c.currentTime + idx * 0.08 + 0.25);
+                    });
+                } catch(e) {}
+            },
+            playWarning: function() {
+                if (!enabled) return;
+                try {
+                    const c = getCtx();
+                    if (!c) return;
+                    const osc = c.createOscillator();
+                    const gain = c.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, c.currentTime);
+                    osc.frequency.setValueAtTime(180, c.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, c.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.2);
+                    osc.connect(gain);
+                    gain.connect(c.destination);
+                    osc.start();
+                    osc.stop(c.currentTime + 0.2);
+                } catch(e) {}
+            }
+        };
+    })();
+
+    function toggleAudioSfx() {
+        const isNowOn = SpaceAudio.toggle();
+        document.getElementById('sfxIcon').textContent = isNowOn ? '🔊' : '🔇';
+    }
+    </script>
+
+    <!-- SERVER-SIDE CONFIG & GAME ENGINE SCRIPT -->
+    <script>
+    const GAME_ID = "{{ game.id }}";
+    const AGE_GROUP = "{{ profile.age_group|default:'11-13' }}";
+    const DIFFICULTY = "{{ profile.difficulty|default:'medium' }}";
+    const CSRF_TOKEN = "{{ csrf_token }}";
+
+    let missionTimerInterval = null;
+    let missionStartTime = 0;
+    let missionSeconds = 0;
+    let currentScore = 0;
+    let activeMiniGameInstance = null;
+
+    function updateScore(points) {
+        currentScore += points;
+        document.getElementById('hudScore').textContent = currentScore;
+    }
+
+    function startMission() {
+        document.getElementById('briefingScreen').classList.add('hidden');
+        document.getElementById('debriefScreen').classList.add('hidden');
+        document.getElementById('gameplayScreen').classList.remove('hidden');
+
+        currentScore = 0;
+        document.getElementById('hudScore').textContent = '0';
+        missionSeconds = 0;
+        missionStartTime = Date.now();
+
+        clearInterval(missionTimerInterval);
+        missionTimerInterval = setInterval(() => {
+            missionSeconds++;
+            const mins = String(Math.floor(missionSeconds / 60)).padStart(2, '0');
+            const secs = String(missionSeconds % 60).padStart(2, '0');
+            document.getElementById('hudTimer').textContent = `${mins}:${secs}`;
+        }, 1000);
+
+        // Mount Game Interaction
+        initMiniGame(GAME_ID);
+    }
+
+    function finishMission(finalScore, scienceText, details) {
+        clearInterval(missionTimerInterval);
+        SpaceAudio.playSuccess();
+
+        document.getElementById('gameplayScreen').classList.add('hidden');
+        document.getElementById('debriefScreen').classList.remove('hidden');
+        document.getElementById('debriefScore').textContent = finalScore;
+        document.getElementById('debriefScienceText').textContent = scienceText;
+
+        // Submit Score to Server (Server-Side Validation & Anti-Exploit)
+        submitScoreToServer(GAME_ID, finalScore, missionSeconds, details);
+    }
+
+    async function submitScoreToServer(gameId, score, timeSecs, details) {
+        try {
+            const resp = await fetch('/api/academy/submit_score/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify({
+                    game_id: gameId,
+                    score: score,
+                    time_seconds: timeSecs,
+                    details: details || {}
+                })
+            });
+            const data = await resp.json();
+            if (data.status === 'ok') {
+                document.getElementById('debriefXp').textContent = `+${data.xp_awarded} XP`;
+                if (data.new_achievements && data.new_achievements.length > 0) {
+                    document.getElementById('debriefBadgeBox').classList.remove('hidden');
+                    document.getElementById('debriefBadgeName').textContent = data.new_achievements.join(', ');
+                }
+            }
+        } catch(e) {
+            console.error('Score submission error:', e);
+        }
+    }
+
+    function restartMission() {
+        startMission();
+    }
+    </script>
+
+    <!-- INJECT ALL 8 WORKING INTERACTIVE MINI-GAME ENGINES -->
+    {% include 'mission/academy_minigames_script.html' %}
+
+</body>
+</html>
