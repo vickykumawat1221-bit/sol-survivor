@@ -35,6 +35,11 @@ LEGAL_ACTIONS = {
     'emergency_rtg', 'emergency_o2', 'emergency_shield', 'restart', 'next_level'
 }
 
+def health_check(request):
+    """Simple health check endpoint."""
+    return JsonResponse({'status': 'healthy', 'service': 'sol_survivor', 'sol': 2026})
+
+
 def get_crew_status(state):
     min_stat = min(
         state.get('power', 100),

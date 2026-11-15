@@ -353,6 +353,12 @@ class SpaceAcademyTests(TestCase):
     """
     def setUp(self):
         self.client = Client()
+        session = self.client.session
+        session['is_authenticated_cadet'] = True
+        session['cadet_name'] = 'Cadet Test'
+        session['cadet_avatar'] = '👨‍🚀'
+        session['cadet_age_bracket'] = '11-13 yrs'
+        session.save()
 
     def test_academy_hub_view(self):
         response = self.client.get(reverse('academy'))
