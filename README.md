@@ -194,7 +194,7 @@ python manage.py runserver 127.0.0.1:8000
 Open your browser and navigate to:
 * **Mission Control (Mars Survival):** [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 * **NASA Space Academy (8 Mini-Games):** [http://127.0.0.1:8000/academy/](http://127.0.0.1:8000/academy/)
-public url : https://typing-apart-with-customized.trycloudflare.com
+public url : https://mortality-measured-priorities-oven.trycloudflare.com
 
 ---
 
